@@ -21,8 +21,9 @@
 
 ### 3. Software-Installation
 
+* Über den Module Store
 * Über das Module Control folgende URL hinzufügen
-https://github.com/da8ter/TileVisu-Kachelsammlung.git
+https://github.com/da8ter/TileVisu-Wallbox-Kachel.git
 
 
 ### 4. Einrichten der Instanzen in IP-Symcon
