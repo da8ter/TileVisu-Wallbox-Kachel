@@ -1,5 +1,5 @@
 <?php
-class TileVisuWallbox extends IPSModule
+class TileVisuWallboxKachel extends IPSModule
 {
     public function Create()
     {
