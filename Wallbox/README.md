@@ -94,7 +94,7 @@ __Sonstiges__
 Name     | Beschreibung
 -------- | ------------------
 Fehler|Eine Variable, die einen möglichen Fehler als String liefert.
-Phasen|Eine Variable, die die Anzahl der aktuell genutzen Phasen leifert. (Integer oder Float mit den Zahlen 1-3)
+Phasen|Eine Variable, die die Anzahl der aktuell genutzen Phasen liefert. (Integer oder Float mit den Zahlen 1-3)
 Kabel|Eine Variable, die eine Information zum verwendeten Kabel liefert. (Integer mit Profil-Assoziationen).
 Zugangskontrolle|Eine Variable, die eine Information zur Zugangskontrolle liefert. (Integer mit Profil-Assoziationen) 
 Verriegelung|Eine Variable, die eine Informoation zum Ver- und Entriegelungsverhalten der Wallbox liefert. (Integer mit Profil-Assoziationen)
