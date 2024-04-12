@@ -1,0 +1,12 @@
+{
+    "id": "{2C3405FC-B2A7-7F73-F2B0-CB0E86C0BE93}",
+    "name": "TileVisuWallbox",
+    "type": 3,
+    "vendor": "",
+    "aliases": [],
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "WAL",
+    "url": "https://github.com/da8ter/TileVisu-Kachelsammlung/tree/main"
+}

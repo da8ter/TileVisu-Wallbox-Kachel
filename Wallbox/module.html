@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <script src="https://kit.fontawesome.com/7da29d74de.js" crossorigin="anonymous"></script>
+
+    <style>
+        :root {
+            --soc: calc(var(--socvalue) * 1%);
+            --soc_ziel: calc((100 - var(--zielsocvalue)) * 1%);
+            --kabel: none;
+            --error_animation: none;
+            --error_color: red;
+            --ladeleistung_prozent_round: calc(var(--ladeleistung) / var(--maxladeleistungvalue) * 100%);
+            --led_color: #0fff;
+            /* Werte für Farbverlauf für 1-phasiges Laden */
+            --led_1p_1_position: calc(95% - (var(--ladeleistung) * 4%));
+            /* Werte für Farbverlauf für 3-phasiges Laden */
+            --led_3p_1_position: calc(30% - (var(--ladeleistung) * 2%));
+            --led_3p_2_position: calc(60% - (var(--ladeleistung) * 2%));
+            --led_3p_3_position: calc(95% - (var(--ladeleistung) * 2%));
+
+        }
+
+        html {
+            background-color: var(--hintergrundfarbe);
+            overflow: hidden;
+        }
+
+        body:before {
+            content: '';
+            display: block;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background-repeat: no-repeat;
+            background-size: cover;
+            
+
+            opacity: var(--bildtransparenz);
+            background: var(--background-image, none) center / cover no-repeat;
+        }
+
+        body {}
+
+        .hidden {
+            display: none;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+
+        ::-webkit-scrollbar-thumb {
+            background: transparent;
+            border-radius: 20px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .main_container {
+            width: 100%;
+            display: flex;
+            flex-wrap: nowrap;
+            position: relative;
+            font-size: 0.9em;
+            box-sizing: border-box;
+        }
+
+        .div1 {
+            width: var(--bildbreite);
+            height: 100%;
+            box-sizing: border-box;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .image1 {
+            width: 100%;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .image1 img {
+            width: 100%;
+            height: auto;
+            display: block;
+
+        }
+
+        .led_animation_centered {
+            width: 75%;
+            aspect-ratio: 1 / 1;
+            position: absolute;
+            top: 59%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: -1;
+            display: inline;
+        }
+
+        .led_animation_1p {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background: conic-gradient(from 0deg, #fff var(--led_1p_1_position), #05d9f5 98%, #fff), #FFFFFF;
+            background-size: 100% 100%;
+            border-radius: 50%;
+            animation-name: rotate;
+            animation-duration: 10s;
+            animation-iteration-count: infinite;
+            animation-direction: normal;
+            animation-timing-function: linear;
+            animation-fill-mode: forwards;
+
+        }
+
+        .led_animation_3p {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background: conic-gradient(from 0deg, #fff var(--led_3p_1_position), #05d9f5 33%, #fff 34%, #fff var(--led_3p_2_position), #05d9f5 63%, #fff 64%, #fff var(--led_3p_3_position), #05d9f5 99%, #fff 100%), #FFFFFF;
+            background-size: 100% 100%;
+            border-radius: 50%;
+            animation-name: rotate;
+            animation-duration: 10s;
+            animation-iteration-count: infinite;
+            animation-direction: normal;
+            animation-timing-function: linear;
+            animation-fill-mode: forwards;
+
+        }
+
+
+        @keyframes rotate {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .led_animation_error {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background-color: #ff0000;
+            border-radius: 50%;
+            animation: blinker 1s linear infinite;
+        }
+
+        .led_animation_fertig {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background-color: #00d43f;
+            border-radius: 50%;
+        }
+
+        .led_animation_warten {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background-image: conic-gradient(from 0deg, #fde004 0%, #fde004 var(--led_1p_1_position), #fde004 var(--led_1p_1_position), #fde004 98%, #fde004);
+            background-size: 100% 100%;
+            border-radius: 50%;
+
+        }
+
+        .led_animation_aus {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background: #fff;
+            background-size: 100% 100%;
+            border-radius: 50%;
+
+        }
+
+        @keyframes blinker {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        .led_animation_aus {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background-color: white;
+            border-radius: 50%;
+        }
+
+        .div2 {
+            width: calc(100% - var(--bildbreite));
+            padding: 5px 5px 5px 2.5%;
+            margin: 0px 0px 0px 2.5%;
+            box-sizing: border-box;
+            border-radius: 0px;
+            border-left: 1px dotted #28cdab;
+        }
+
+        .balkendiagramm {
+            width: 100%;
+            display: flex;
+            position: relative;
+            margin-bottom: 2%;
+            margin-top: 2%;
+            box-sizing: border-box;
+
+        }
+
+        .balkendiagramm_soc {
+            width: 100%;
+            display: flex;
+            position: relative;
+            margin-bottom: 2%;
+            margin-top: 2%;
+            box-sizing: border-box;
+        }
+
+        .balken_links_leistung,
+        .balken_rechts_leistung,
+        .balken_links_soc,
+        .balken_rechts_soc {
+            height: 1.8em;
+            font-size: 0.9em;
+            transition: width 2s;
+            transition-timing-function: ease;
+        }
+
+        @keyframes gradient_leistung {
+            0% {
+                background-position: 0 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .balken_links_leistung {
+            width: var(--ladeleistung_prozent_round);
+            background: repeating-linear-gradient(to right, var(--balkenverlauffarbe1) 0%, var(--balkenverlauffarbe2) 50%, var(--balkenverlauffarbe1) 100%);
+            background-size: 200% auto;
+            background-position: 0 100%;
+            animation: gradient_leistung 10s infinite;
+            animation-fill-mode: forwards;
+            animation-timing-function: linear;
+            border-radius: 0px 0px 0px 0px;
+
+        }
+
+        .balken_links_soc {
+            width: var(--soc);
+            background: repeating-linear-gradient(to right, var(--balkenverlaufsocfarbe1) 0%, var(--balkenverlaufsocfarbe2) 50%, var(--balkenverlaufsocfarbe1) 100%);
+            background-size: 200% auto;
+            background-position: 0 100%;
+            animation: gradient_leistung 10s infinite;
+            animation-fill-mode: forwards;
+            animation-timing-function: linear;
+            border-radius: 0px 0px 0px 0px;
+
+        }
+
+        .balken_links_text_label {
+            position: absolute;
+            top: 50%;
+
+            transform: translate(-0%, -50%);
+            color: #fff;
+            z-index: 2;
+            padding-left: 7px;
+            font-size: var(--balkenschriftgroesse);
+            white-space: nowrap;
+        }
+
+        .balken_links_text_value {
+            position: absolute;
+            top: 50%;
+
+            transform: translate(-0%, -50%);
+            color: #fff;
+            z-index: 2;
+            padding: 3px;
+            font-size: var(--balkenschriftgroesse);
+            white-space: nowrap;
+        }
+
+
+
+
+        .balken_soc_text_rechts {
+            display: flex;
+            justify-content: right;
+            /* Horizontal zentriert */
+            align-items: center;
+            /* Vertikal zentriert */
+            height: 90%;
+            position: absolute;
+            top: 50%;
+            right: var(--soc_ziel);
+            transform: translate(-0%, -50%);
+            color: #fff;
+            z-index: 3;
+            padding: 0px;
+            border-right: 2px solid black;
+        }
+
+        .phasen {}
+
+        .balken_rechts {
+            width: 100%;
+            border-radius: 5;
+            background: linear-gradient(to right, rgba(135, 135, 135, 0.6) 0%, rgba(135, 135, 135, 0.2) 100%);
+            overflow: hidden;
+            border-radius: 5px;
+        }
+
+        .status {
+            color: var(--statuscolor);
+            font-size: var(--statusschriftgroesse);
+        }
+
+        .statuslabel {
+            font-size: var(--statusschriftgroesse);
+        }
+
+        .status-error {
+            animation: var(--error_animation);
+            animation-fill-mode: both;
+            color: var(--error_color), currentColor;
+        }
+
+        .error_animation {
+            animation: var(--error_animation);
+            animation-fill-mode: both;
+            color: var(--error_color);
+        }
+
+        @keyframes blink {
+            0% {
+                opacity: 0
+            }
+
+            50% {
+                opacity: 1
+            }
+
+            100% {
+                opacity: 0
+            }
+        }
+
+        .container_daten {
+            display: flex;
+            flex-wrap: nowrap;
+            width: 100%;
+            font-size: 0.9em;
+        }
+
+        .daten_links {
+            margin-right: 20px;
+            border: 0px solid #000;
+        }
+
+        .daten_rechts {
+            border: 0px solid #000;
+        }
+
+        .icon {
+            color: #26d4b9;
+        }
+
+        th,
+        td {
+            padding: 2;
+            text-align: left;
+            border: none;
+            border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+            font-size: var(--infoschriftgroesse);
+
+
+        }
+    </style>
+
+
+    <script>
+        function handleMessage(data) {
+            //console.log('Rohdaten empfangen:', data);
+
+            const decodedData = JSON.parse(data);
+
+            //console.log('Decodierte Daten:', decodedData);
+
+            for (const parameter in decodedData) {
+                console.log('Aktueller Parameter:', parameter, 'Wert:', decodedData[parameter]);
+
+                const element = document.getElementById(parameter.toLowerCase());
+                const parameter2 = String(parameter).toLowerCase();
+                //console.log('Aktueller Parameter:', parameter, 'Wert:', decodedData[parameter]);
+                var root = document.documentElement;
+                // Abhängig vom Parameter werden allerdings verschiedene Werte angepasst
+                switch (parameter2) {
+
+                    case 'status':
+                        element.textContent = decodedData[parameter];
+                        // if (decodedData[parameter]) {
+                        //   statusdiv.className = 'visible';
+                        // }
+                        break;
+                    case 'statusvalue':
+                        var index = decodedData[parameter];
+                        if (!statusImages[index]) {
+                            index = 0;
+                        }
+                        if (statusImages[index] === 'goe_an') {
+                            document.getElementById('image').src = window.assets.img_goe_an;
+                        }
+                        else if (statusImages[index] === 'goe_aus') {
+                            document.getElementById('image').src = window.assets.img_goe_aus;
+                        }
+                        else {
+                            document.getElementById('image').src = window.assets.img_goe_aus;
+                        }
+                        root.style.setProperty('--statuscolor', statusColor[index]);
+
+
+
+                        if (statusAnimation[index] === 'standby_animation') {
+                            led_animation.className = 'led_animation_aus';
+                        }
+                        else if (statusAnimation[index] === 'laden_animation') {
+
+                            if (phasecount === 1) {
+                                led_animation.className = 'led_animation_1p';
+                            }
+                            if (phasecount === 2 || phasecount === 3) {
+                                led_animation.className = 'led_animation_3p';
+                            } else {
+                                led_animation.className = 'led_animation_1p';
+                            }
+                        }
+                        else if (statusAnimation[index] === 'fertig_animation') {
+                            led_animation.className = 'led_animation_fertig';
+                        }
+                        else if (statusAnimation[index] === 'error_animation') {
+                            led_animation.className = 'led_animation_error';
+                        }
+                        else if (statusAnimation[index] === 'warten_animation') {
+                            led_animation.className = 'led_animation_warten';
+                        }
+
+                        break;
+                    case 'ladeleistung':
+                        element.textContent = decodedData[parameter];
+                        if (decodedData[parameter]) {
+                            leistungdiv.className = 'balkendiagramm';
+                        }
+                        break;
+                    case 'ladeleistungvalue':
+                        root.style.setProperty('--ladeleistung', decodedData[parameter]);
+                        if (decodedData[parameter]) {
+                            leistungdiv.className = 'balkendiagramm';
+                        }
+
+
+                        break;
+                    case 'socvalue':
+                        root.style.setProperty('--socvalue', decodedData[parameter]);
+                        break;
+                    case 'soc':
+                        element.textContent = decodedData[parameter];
+                        break;
+                    case 'zielsocvalue':
+                        root.style.setProperty('--zielsocvalue', decodedData[parameter]);
+                        break;
+                    case 'zielsoc':
+                        // element.textContent = decodedData[parameter];
+                        break;
+                    case 'maxladeleistungvalue':
+                        root.style.setProperty('--maxladeleistungvalue', decodedData[parameter]);
+                        break;
+                    case 'verbrauchgesamt':
+
+                        if (decodedData[parameter]) {
+                            document.getElementById("verbrauchgesamt").classList.remove("hidden");
+                            document.getElementById("verbrauchgesamthead").classList.remove("hidden");
+                            document.getElementById("verbrauch").classList.remove("hidden");
+                            element.textContent = decodedData[parameter];
+                        }
+
+                        break;
+                    case 'verbrauchtag':
+                        if (decodedData[parameter]) {
+                            document.getElementById("verbrauchtag").classList.remove("hidden");
+                            document.getElementById("verbrauchtaghead").classList.remove("hidden");
+                            document.getElementById("verbrauch").classList.remove("hidden");
+                            element.textContent = decodedData[parameter];
+                        }
+                        break;
+                    case 'kostentag':
+                        if (decodedData[parameter]) {
+                            document.getElementById("trkosten").classList.remove("hidden");
+                            document.getElementById("kostentag").classList.remove("hidden");
+                            document.getElementById("kostentaghead").classList.remove("hidden");
+                            element.textContent = decodedData[parameter];
+                        }
+                        break;
+                    case 'kostengesamt':
+                        if (decodedData[parameter]) {
+                            document.getElementById("trkosten").classList.remove("hidden");
+                            document.getElementById("kostengesamt").classList.remove("hidden");
+                            document.getElementById("kostengesamthead").classList.remove("hidden");
+                            element.textContent = decodedData[parameter];
+                        }
+                        break;
+                    case 'verriegelung':
+                        if (decodedData[parameter]) {
+                            document.getElementById("trverriegelung").classList.remove("hidden");
+                            element.textContent = decodedData[parameter];
+                        }
+                        break;
+                    case 'kabel':
+                        if (decodedData[parameter]) {
+                            document.getElementById("trkabel").classList.remove("hidden");
+                            element.textContent = decodedData[parameter];
+                        }
+                        break;
+                    case 'zugangskontrolle':
+                        if (decodedData[parameter]) {
+                            document.getElementById("trzugang").classList.remove("hidden");
+                            element.textContent = decodedData[parameter];
+                        }
+                        break;
+                    case 'fehler':
+                        if (decodedData[parameter]) {
+                            document.getElementById("trfehler").classList.remove("hidden");
+                            element.textContent = decodedData[parameter];
+                        }
+                        break;
+                    case 'phasenvalue':
+                    case 'phasen':
+                        if (decodedData[parameter]) {
+                            document.getElementById("trphasen").classList.remove("hidden");
+
+                        }
+
+                        if (decodedData[parameter] === 1) {
+                            phase1.classList.remove('fa-regular');
+                            phase1.classList.add('fa-solid');
+                            phase2.classList.remove('fa-solid');
+                            phase2.classList.add('fa-regular');
+                            phase3.classList.remove('fa-solid');
+                            phase3.classList.add('fa-regular');
+
+
+                            if (!statusAnimation[wallboxstatus]) {
+                                index = 0;
+                            }
+
+                            if (statusAnimation[wallboxstatus] === 'laden_animation') {
+                                led_animation.className = 'led_animation_1p';
+                            }
+                        }
+                        else if (decodedData[parameter] === 2) {
+                            phase1.classList.remove('fa-regular');
+                            phase1.classList.add('fa-solid');
+                            phase2.classList.remove('fa-regular');
+                            phase2.classList.add('fa-solid');
+                            phase3.classList.remove('fa-solid');
+                            phase3.classList.add('fa-regular');
+                            if (!statusAnimation[wallboxstatus]) {
+                                index = 0;
+                            }
+
+                            if (statusAnimation[wallboxstatus] === 'laden_animation') {
+                                led_animation.className = 'led_animation_3p';
+                            }
+                        }
+                        else if (decodedData[parameter] === 3) {
+                            phase1.classList.remove('fa-regular');
+                            phase1.classList.add('fa-solid');
+                            phase2.classList.remove('fa-regular');
+                            phase2.classList.add('fa-solid');
+                            phase3.classList.remove('fa-regular');
+                            phase3.classList.add('fa-solid');
+                            if (!statusAnimation[wallboxstatus]) {
+                                index = 0;
+                            }
+
+                            if (statusAnimation[wallboxstatus] === 'laden_animation') {
+                                led_animation.className = 'led_animation_3p';
+                            }
+                        }
+                        else {
+                        }
+                        break;
+                    case 'socschaltervalue':
+                        if (decodedData[parameter] === true) {
+                            socdiv.className = 'balkendiagramm_soc';
+                        }
+                        else {
+                            socdiv.className = 'hidden';
+                        }
+                        break;
+                    case 'zielsocschaltervalue':
+                        if (decodedData[parameter] === true) {
+                            zielsocdiv.className = 'balken_soc_text_rechts';
+                        }
+                        else {
+                            zielsocdiv.className = 'hidden';
+                        }
+                        break;
+                    case 'balkenverlaufsocfarbe1':
+                        root.style.setProperty('--balkenverlaufsocfarbe1', decodedData[parameter]);
+                        break;
+                    case 'balkenverlaufsocfarbe2':
+                        root.style.setProperty('--balkenverlaufsocfarbe2', decodedData[parameter]);
+                        break;
+                    case 'balkenverlauffarbe1':
+                        root.style.setProperty('--balkenverlauffarbe1', decodedData[parameter]);
+                        break;
+                    case 'balkenverlauffarbe2':
+                        root.style.setProperty('--balkenverlauffarbe2', decodedData[parameter]);
+                        break;
+                    case 'statusschriftgroesse':
+                        root.style.setProperty('--statusschriftgroesse', decodedData[parameter] + 'em');
+                        break;
+                    case 'programmschriftgroesse':
+                        root.style.setProperty('--programmschriftgroesse', decodedData[parameter] + 'em');
+                        break;
+                    case 'infoschriftgroesse':
+                        root.style.setProperty('--infoschriftgroesse', decodedData[parameter] + 'em');
+                        break;
+                    case 'balkenschriftgroesse':
+                        root.style.setProperty('--balkenschriftgroesse', decodedData[parameter] + 'em');
+                        break;
+                    case 'bildbreite':
+                        root.style.setProperty('--bildbreite', decodedData[parameter] + '%');
+                        if (decodedData[parameter] !== 0) {
+                            div1.className = 'div1';
+                        }
+                        else {
+                            div1.className = 'hidden';
+                            div2.style.padding = '0px 5px 5px 0px';
+                            div2.style.margin = '0px 0px 0px 0px';
+                        }
+                        break;
+                    case 'image1':
+                        mainDiv = document.querySelector('body');
+                        mainDiv.style.setProperty('--background-image', 'url(' + decodedData[parameter] + ')');
+                        break;
+                    case 'bildtransparenz':
+                        root.style.setProperty('--bildtransparenz', decodedData[parameter]);
+                        break;
+                    case 'kachelhintergrundfarbe':
+
+                        if (decodedData[parameter] === '#FFFFFFFFFFFFFFFF') {
+                            root.style.setProperty('--hintergrundfarbe', 'rgba(0, 0, 0, 0)');
+                        }
+                        else {
+                            root.style.setProperty('--hintergrundfarbe', decodedData[parameter]);
+                        }
+                        break;
+
+                    default:
+                        //console.log('Setze innerHTML für', parameter);
+                        // Setze innerHTML nur, wenn das Element gefunden wurde
+                        //element.innerHTML = decodedData[parameter];<i id="temp_icon" class="fa-solid fa-house-chimney-user icon"></i>
+                        break;
+                }
+
+            }
+        }
+
+    </script>
+
+
+</head>
+
+<body>
+    <div class="main_container">
+        <div id="div1" class="div1">
+            <div class="image1" id="image1">
+                <div class="led_animation_centered">
+                    <div class="" id="led_animation"></div>
+                </div><img id="image" src="" />
+            </div>
+        </div>
+        <div class="div2"> <b><span class="statuslabel">Status: </span></b><span class="status" id="status"></span><br>
+            <div class="hidden" id="leistungdiv">
+                <div class="balken_rechts" id="balken_rechts">
+                    <div class="balken_links_leistung" id="balken_links_leistung"> <span
+                            class="balken_links_text_label"><b>Leistung: </b> <span id="ladeleistung">0</span></span>
+                    </div>
+                </div>
+            </div>
+            <div class="hidden" id="socdiv">
+                <div class="balken_rechts">
+                    <div class="balken_links_soc"> <span class="balken_links_text_label"><b>SOC: </b> <span
+                                id="soc">0</span></span>
+                        <div class="balken_soc_text_rechts" id="zielsocdiv"><b>Ladeziel&nbsp;&nbsp;</b></div>
+                    </div>
+                </div>
+            </div>
+            <div class="container_daten">
+                <table style="width: 100%;">
+                    <tr class="hidden" id="verbrauch">
+                        <td><i class="fa-solid fa-bolt fa-sm icon"></i>&nbsp;&nbsp;<br></td>
+                        <td style="padding-right: 10px;">Geladen:</td>
+                        <td><span class="hidden" id="verbrauchtaghead">Aktuell: </span><span class="hidden"
+                                style="padding-right: 10px;" id="verbrauchtag"></span><span class="hidden"
+                                id="verbrauchgesamthead">Gesamt: </span><span class="hidden"
+                                id="verbrauchgesamt"></span>
+                        </td>
+                    </tr>
+                    <tr class="hidden" id="trkosten">
+                        <td><i class="fa-solid fa-coins fa-sm icon"></i>&nbsp;&nbsp;<br></td>
+                        <td style="padding-right: 10px;">Kosten:</td>
+                        <td><span class="hidden" id="kostentaghead">Aktuell: </span><span class="hidden"
+                                style="padding-right:10px;" id="kostentag"></span><span class="hidden"
+                                id="kostengesamthead">Gesamt: </span><span class="hidden" id="kostengesamt"></span>
+                        </td>
+                    </tr>
+                    <tr class="hidden" id="trphasen">
+                        <td><i class="fa-solid fa-bars fa-sm icon"></i></td>
+                        <td style="padding-right: 10px;">Phasen:</td>
+                        <td><span class="phasen" id="phasen">
+                                <i id="phase1" class="fa-regular fa-circle fa-sm icon fa-fw"></i>
+                                <i id="phase2" class="fa-regular fa-circle fa-sm icon fa-fw"></i>
+                                <i id="phase3" class="fa-regular fa-circle fa-sm icon fa-fw"></i>
+                            </span></td>
+                    </tr>
+                    <tr class="hidden" id="trverriegelung">
+                        <td><i class="fa-solid fa-lock fa-sm icon"></i></td>
+                        <td style="padding-right: 10px;">Verriegelung:</td>
+                        <td><span id="verriegelung"></span></td>
+                    </tr>
+                    <tr class="hidden" id="trkabel">
+                        <td><i class="fa-solid fa-plug fa-sm icon"></i></td>
+                        <td style="padding-right: 10px;">Ladekabel:</td>
+                        <td><span id="kabel"></span></td>
+                    </tr>
+                    <tr class="hidden" id="trzugang">
+                        <td><i class="fa-solid fa-key fa-sm icon"></i></td>
+                        <td style="padding-right: 10px;">Zugang:</td>
+                        <td><span id="zugangskontrolle"></span></td>
+                    </tr>
+                    <tr class="hidden" id="trfehler">
+                        <td><i class="fa-solid fa-triangle-exclamation fa-sm icon"></i></td>
+                        <td style="padding-right: 10px;">Fehler:</td>
+                        <td><span class="status-error" id="fehler"></span></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+</body>
+
+</html>
