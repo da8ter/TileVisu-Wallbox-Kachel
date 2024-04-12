@@ -4,4 +4,4 @@
 
 Status-Kachel für Wallboxen. 
 
-[Dokumentation](https://github.com/da8ter/TileVisu-Geraete-Status-Kachel/blob/8174ec61aae0b2103119746516d29b2dab33be98/WashingMachineDryer/README.md)
+[Dokumentation](https://github.com/da8ter/TileVisu-Wallbox-Kachel-/blob/b345d4c1777ff6ef4fdd301056dbaa5514998b79/Wallbox/README.md)
