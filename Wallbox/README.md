@@ -7,7 +7,7 @@
 2. [Voraussetzungen](#2-voraussetzungen)
 3. [Software-Installation](#3-software-installation)
 4. [Einrichten der Instanzen in IP-Symcon](#4-einrichten-der-instanzen-in-ip-symcon)
-
+5. [Kachelkonfiguration](#5-Kachelkonfiguration)
 
 ### 1. Funktionsumfang
 
@@ -29,7 +29,10 @@ https://github.com/da8ter/TileVisu-Wallbox-Kachel.git
  Unter 'Instanz hinzufügen' kann die Wallbox-Kachel mithilfe des Schnellfilters gefunden werden. (Suchbegriff: TileVisuWallbox)  
 	- Weitere Informationen zum Hinzufügen von Instanzen in der [Dokumentation der Instanzen](https://www.symcon.de/service/dokumentation/konzepte/instanzen/#Instanz_hinzufügen)
 
-__Konfigurationsseite__:
+### 5. Kachelkonfiguration
+
+Grundsätzlicher Hinweis:
+Standardmäßig sind alle Objekte in der Kachelansicht ausgeblendet. Sie werden nur angezeigt, wenn du sie entsprechend konfigurierst. Bitte beachte, dass nicht alle Änderungen an der Konfiguration automatisch in der Kachelansicht sichtbar sind. Sollten Änderungen nicht sofort erscheinen, lade bitte die Seite oder den iFrame neu.
 
 __Kacheldesign__
 Name     | Beschreibung
