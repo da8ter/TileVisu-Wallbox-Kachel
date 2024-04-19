@@ -442,7 +442,7 @@ class TileVisuWallboxKachel extends IPSModule
                     ];
                 }
             }
-
+        } 
     
         // Konvertieren Sie Ihre Liste in JSON und aktualisieren Sie das Konfigurationsformular
         $jsonListData = json_encode($listData);
