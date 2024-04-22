@@ -384,7 +384,7 @@
               "type": "SelectVariable",
               "name": "Phasen",
               "caption": "Phases:",
-              "validVariableTypes": []
+              "validVariableTypes": [1, 2]
             },
             {
               "type": "SelectVariable",
