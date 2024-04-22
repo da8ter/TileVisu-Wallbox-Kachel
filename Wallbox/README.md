@@ -1,6 +1,8 @@
 # Wallbox Kachel
 ![Wallbox-Kachel](https://github.com/da8ter/images/blob/main/wallbox.png)
 
+Support: https://community.symcon.de/t/html-kachelsammlung-bewohnerstatus-waermepumpe-etc/
+
 ### Inhaltsverzeichnis
 
 1. [Funktionsumfang](#1-funktionsumfang)
