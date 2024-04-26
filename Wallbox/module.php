@@ -304,7 +304,7 @@ class TileVisuWallboxKachel extends IPSModule
 
         $images .= '</script>';
 
-var_dump(IPS_VariableExists($this->ReadPropertyInteger('Status')) ? GetValue($this->ReadPropertyInteger('Status')) : null;);
+        var_dump(IPS_VariableExists($this->ReadPropertyInteger('Status')) ? GetValue($this->ReadPropertyInteger('Status')) : null);
 
 
         // Füge statisches HTML aus Datei hinzu
