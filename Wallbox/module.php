@@ -297,7 +297,7 @@ class TileVisuWallboxKachel extends IPSModule
         $images .= 'var statusColor = ' . $statusColorJson . ';';
         $images .= 'var statusAnimation = ' . $statusAnimationJson . ';';
         $images .= 'var phasecount = ' . (IPS_VariableExists($this->ReadPropertyInteger('Phasen')) ? GetValue($this->ReadPropertyInteger('Phasen')) : 'null') . ';';
-        $images .= 'var wallboxstatus = ' . (IPS_VariableExists($this->ReadPropertyInteger('Status')) ? GetValue($this->ReadPropertyInteger('Status')) : 'null') . ';';
+        $images .= 'var wallboxstatus = ' . (IPS_VariableExists($this->ReadPropertyInteger('Status')) ? (int)GetValue($this->ReadPropertyInteger('Status')) : 'null') . ';';
         
         
         //$images .= 'var wallboxstatus = 1;';
