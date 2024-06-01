@@ -547,7 +547,7 @@
                         break;
                     case 'phasenvalue':
                     case 'phasen':
-                        if (decodedData[parameter]) {
+                        if (decodedData[parameter] === 0 || decodedData[parameter] === 1 || decodedData[parameter] === 3) {
                             document.getElementById("trphasen").classList.remove("hidden");
 
                         }
@@ -600,6 +600,12 @@
                             }
                         }
                         else {
+                            phase1.classList.remove('fa-solid');
+                            phase1.classList.add('fa-regular');
+                            phase2.classList.remove('fa-solid');
+                            phase2.classList.add('fa-regular');
+                            phase3.classList.remove('fa-solid');
+                            phase3.classList.add('fa-regular');
                         }
                         break;
                     case 'socschaltervalue':
