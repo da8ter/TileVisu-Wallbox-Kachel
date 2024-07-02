@@ -347,7 +347,7 @@ class TileVisuWallboxKachel extends IPSModule
             $result['Kabel'] = IPS_VariableExists($this->ReadPropertyInteger('Kabel')) ? $this->CheckAndGetValueFormatted('Kabel') : null;
             $result['Zugangskontrolle'] = IPS_VariableExists($this->ReadPropertyInteger('Zugangskontrolle')) ? $this->CheckAndGetValueFormatted('Zugangskontrolle') : null;
             $result['Verriegelung'] = IPS_VariableExists($this->ReadPropertyInteger('Verriegelung')) ? $this->CheckAndGetValueFormatted('Verriegelung') : null;
-            $result['Verriegelung'] = IPS_VariableExists($this->ReadPropertyInteger('Reichweite')) ? $this->CheckAndGetValueFormatted('Reichweite') : null;
+            $result['Reichweite'] = IPS_VariableExists($this->ReadPropertyInteger('Reichweite')) ? $this->CheckAndGetValueFormatted('Reichweite') : null;
            
             
             
