@@ -58,14 +58,13 @@
         "Power:": "Leistung:",
         "Charged:": "Geladen:",
         "Costs:": "Kosten:",
-        "Phases:": "Phasen:",
         "Locking:": "Verriegelung:",
         "Cable:": "Ladekabel:",
         "Access:": "Zugang:",
-        "Error:": "Fehler:",
         "Total:": "Gesamt:",
         "Current:": "Aktuell:",
-        "Target SOC": "Ladeziel"
+        "Target SOC": "Ladeziel",
+        "Range:": "Reichweite:"
       }
     }
   }

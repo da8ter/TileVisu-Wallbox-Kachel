@@ -526,6 +526,11 @@
                             document.getElementById("trverriegelung").classList.remove("hidden");
                             element.textContent = decodedData[parameter];
                         }
+                    case 'reichweite':
+                        if (decodedData[parameter]) {
+                            document.getElementById("trreichweite").classList.remove("hidden");
+                            element.textContent = decodedData[parameter];
+                        }
                         break;
                     case 'kabel':
                         if (decodedData[parameter]) {
@@ -762,6 +767,11 @@
                     <tr class="hidden" id="trfehler">
                         <td><i class="fa-solid fa-triangle-exclamation fa-sm icon"></i></td>
                         <td style="padding-right: 10px;">Error:</td>
+                        <td><span class="status-error" id="fehler"></span></td>
+                    </tr>
+                    <tr class="hidden" id="trreichweite">
+                        <td><i class="fa-solid fa-road fa-sm icon"></i></td>
+                        <td style="padding-right: 10px;">Range:</td>
                         <td><span class="status-error" id="fehler"></span></td>
                     </tr>
                 </table>

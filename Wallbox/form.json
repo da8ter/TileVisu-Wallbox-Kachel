@@ -403,7 +403,13 @@
               "name": "Verriegelung",
               "caption": "Lock:",
               "validVariableTypes": []
-            }            
+            },
+            {
+              "type": "SelectVariable",
+              "name": "Reichweite",
+              "caption": "Range:",
+              "validVariableTypes": []
+            }           
           ]
         }
       ]

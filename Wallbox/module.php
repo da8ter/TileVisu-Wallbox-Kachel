@@ -24,6 +24,7 @@ class TileVisuWallboxKachel extends IPSModule
         $this->RegisterPropertyInteger("Kabel", 0);
         $this->RegisterPropertyInteger("Zugangskontrolle", 0);
         $this->RegisterPropertyInteger("Verriegelung", 0);
+        $this->RegisterPropertyInteger("Reichweite", 0);
         $this->RegisterPropertyFloat("StatusSchriftgroesse", 1);
         $this->RegisterPropertyFloat("ProgrammSchriftgroesse", 1);
         $this->RegisterPropertyFloat("InfoSchriftgroesse", 1);
@@ -71,7 +72,8 @@ class TileVisuWallboxKachel extends IPSModule
             $this->ReadPropertyInteger('MaxLadeleistung'),
             $this->ReadPropertyInteger('Kabel'),
             $this->ReadPropertyInteger('Zugangskontrolle'),
-            $this->ReadPropertyInteger('Verriegelung')
+            $this->ReadPropertyInteger('Verriegelung'),
+            $this->ReadPropertyInteger('Reichweite')
         ];
         $refs = $this->GetReferenceList();
             foreach($refs as $ref) {
@@ -95,7 +97,7 @@ class TileVisuWallboxKachel extends IPSModule
         }
 
 
-        foreach (['Status', 'Ladeleistung', 'SOC', 'ZielSOC', 'SOCschalter', 'ZielSOCschalter', 'Verbrauchgesamt', 'VerbrauchTag', 'KostenTag', 'KostenGesamt', 'Fehler', 'Phasen', 'MaxLadeleistung', 'Kabel', 'Zugangskontrolle', 'Verriegelung'] as $VariableProperty)        {
+        foreach (['Status', 'Ladeleistung', 'SOC', 'ZielSOC', 'SOCschalter', 'ZielSOCschalter', 'Verbrauchgesamt', 'VerbrauchTag', 'KostenTag', 'KostenGesamt', 'Fehler', 'Phasen', 'MaxLadeleistung', 'Kabel', 'Zugangskontrolle', 'Verriegelung', 'Reichweite'] as $VariableProperty)        {
             $this->RegisterMessage($this->ReadPropertyInteger($VariableProperty), VM_UPDATE);
         }
 
@@ -107,7 +109,7 @@ class TileVisuWallboxKachel extends IPSModule
     public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
     {
 
-        foreach (['Status', 'Ladeleistung', 'SOC', 'ZielSOC', 'SOCschalter', 'ZielSOCschalter', 'Verbrauchgesamt', 'VerbrauchTag', 'KostenTag', 'KostenGesamt', 'Fehler', 'Phasen', 'MaxLadeleistung', 'Kabel', 'Zugangskontrolle', 'Verriegelung'] as $index => $VariableProperty)
+        foreach (['Status', 'Ladeleistung', 'SOC', 'ZielSOC', 'SOCschalter', 'ZielSOCschalter', 'Verbrauchgesamt', 'VerbrauchTag', 'KostenTag', 'KostenGesamt', 'Fehler', 'Phasen', 'MaxLadeleistung', 'Kabel', 'Zugangskontrolle', 'Verriegelung', 'Reichweite'] as $index => $VariableProperty)
         {
             if ($SenderID === $this->ReadPropertyInteger($VariableProperty))
             {
@@ -345,6 +347,7 @@ class TileVisuWallboxKachel extends IPSModule
             $result['Kabel'] = IPS_VariableExists($this->ReadPropertyInteger('Kabel')) ? $this->CheckAndGetValueFormatted('Kabel') : null;
             $result['Zugangskontrolle'] = IPS_VariableExists($this->ReadPropertyInteger('Zugangskontrolle')) ? $this->CheckAndGetValueFormatted('Zugangskontrolle') : null;
             $result['Verriegelung'] = IPS_VariableExists($this->ReadPropertyInteger('Verriegelung')) ? $this->CheckAndGetValueFormatted('Verriegelung') : null;
+            $result['Verriegelung'] = IPS_VariableExists($this->ReadPropertyInteger('Reichweite')) ? $this->CheckAndGetValueFormatted('Reichweite') : null;
            
             
             
