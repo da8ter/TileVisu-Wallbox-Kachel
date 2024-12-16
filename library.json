@@ -4,9 +4,9 @@
     "author": "Stephan Sprick",
     "url": "https://github.com/da8ter/TileVisu-Kachelsammlung.git",
     "compatibility": {
-        "version": "7.1"
+        "version": "7.2"
     },
-    "version": "1.0.4",
+    "version": "1.0.5",
     "build": 0,
     "date": 0
 }
