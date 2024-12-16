@@ -257,6 +257,7 @@
             animation-fill-mode: forwards;
             animation-timing-function: linear;
             border-radius: 0px 0px 0px 0px;
+            animation: none;
 
         }
 
@@ -269,6 +270,7 @@
             animation-fill-mode: forwards;
             animation-timing-function: linear;
             border-radius: 0px 0px 0px 0px;
+            animation: none;
 
         }
 
@@ -403,7 +405,7 @@
             //console.log('Decodierte Daten:', decodedData);
 
             for (const parameter in decodedData) {
-                console.log('Aktueller Parameter:', parameter, 'Wert:', decodedData[parameter]);
+                //console.log('Aktueller Parameter:', parameter, 'Wert:', decodedData[parameter]);
 
                 const element = document.getElementById(parameter.toLowerCase());
                 const parameter2 = String(parameter).toLowerCase();
