@@ -227,14 +227,17 @@
             box-sizing: border-box;
         }
 
-        .balken_links_leistung,
-        .balken_rechts_leistung,
-        .balken_links_soc,
-        .balken_rechts_soc {
-            font-size: var(--balkenschriftgroesse);
-            transition: width 2s;
-            transition-timing-function: ease;
-        }
+.balken_links_leistung,
+.balken_rechts_leistung,
+.balken_links_soc,
+.balken_rechts_soc {
+    font-size: var(--balkenschriftgroesse);
+
+    /* Höhe = Schriftgröße + 10 px */
+    height: calc(var(--balkenschriftgroesse) + 10px);
+
+    transition: width 2s ease;      /* unverändert */
+}
 
         @keyframes gradient_leistung {
             0% {
