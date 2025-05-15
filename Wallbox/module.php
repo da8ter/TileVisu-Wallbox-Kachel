@@ -25,10 +25,10 @@ class TileVisuWallboxKachel extends IPSModule
         $this->RegisterPropertyInteger("Zugangskontrolle", 0);
         $this->RegisterPropertyInteger("Verriegelung", 0);
         $this->RegisterPropertyInteger("Reichweite", 0);
-        $this->RegisterPropertyFloat("StatusSchriftgroesse", 1);
-        $this->RegisterPropertyFloat("ProgrammSchriftgroesse", 1);
-        $this->RegisterPropertyFloat("InfoSchriftgroesse", 1);
-        $this->RegisterPropertyFloat("BalkenSchriftgroesse", 1);
+        $this->RegisterPropertyFloat("StatusSchriftgroesse", 10);
+        $this->RegisterPropertyFloat("ProgrammSchriftgroesse", 10);
+        $this->RegisterPropertyFloat("InfoSchriftgroesse", 10);
+        $this->RegisterPropertyFloat("BalkenSchriftgroesse", 10);
         $this->RegisterPropertyInteger("BalkenVerlaufFarbe1", 2674091);
         $this->RegisterPropertyInteger("BalkenVerlaufFarbe2", 2132596);
         $this->RegisterPropertyInteger("BalkenVerlaufSOCFarbe1", 7257660);
