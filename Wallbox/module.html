@@ -939,10 +939,11 @@
             // Textposition je nach Ziel-SOC-Wert anpassen
             if (zielsocValue >= 50) {
                 // Ziel-SOC ≥ 50%: Text links vom Zielindikator
-    } else {
-        // Ziel-SOC < 50%: Text rechts vom Zielindikator
-        zielsocTextElement.classList.add('position-before-bar');
-    }
+                zielsocTextElement.classList.remove('position-before-bar');
+            } else {
+                // Ziel-SOC < 50%: Text rechts vom Zielindikator
+                zielsocTextElement.classList.add('position-before-bar');
+            }
 
     // Prüfen, ob sich Ziel-SOC-Text und aktueller SOC-Text überlappen
     // Element sichtbar machen, damit getBoundingClientRect korrekt funktioniert
