@@ -127,9 +127,9 @@
               "name": "StatusSchriftgroesse",
               "caption": "Font size:",
               "digits": 1,
-              "minimum": 0.5,
-              "maximum": 10.0,
-              "suffix": "em",
+              "minimum": 8,
+              "maximum": 36,
+              "suffix": "px",
               "width": "150px"
             }
           ]
@@ -246,9 +246,9 @@
               "name": "BalkenSchriftgroesse",
               "caption": "Font size:",
               "digits": 1,
-              "minimum": 0.5,
-              "maximum": 10.0,
-              "suffix": "em",
+              "minimum": 8,
+              "maximum": 36,
+              "suffix": "px",
               "width": "150px"
             },
             {
@@ -420,9 +420,9 @@
               "name": "InfoSchriftgroesse",
               "caption": "Font size for info (phases, charged, locking, etc.):",
               "digits": 1,
-              "minimum": 0.5,
-              "maximum": 10.0,
-              "suffix": "em",
+              "minimum": 8,
+              "maximum": 36,
+              "suffix": "px",
               "width": "300px"
             },
     {

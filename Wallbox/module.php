@@ -52,40 +52,19 @@ class TileVisuWallboxKachel extends IPSModule
     {
         parent::ApplyChanges();
 
-        
         //Referenzen Registrieren
-        $ids = [
-            $this->ReadPropertyInteger('Status'),
-            $this->ReadPropertyInteger('Ladeleistung'),
-            $this->ReadPropertyInteger('SOC'),
-            $this->ReadPropertyInteger("SOCschalter"),
-            $this->ReadPropertyInteger('ZielSOC'),
-            $this->ReadPropertyInteger("ZielSOCschalter"),
-            $this->ReadPropertyInteger("Verbrauchgesamt"),
-            $this->ReadPropertyInteger('bgImage'),
-            $this->ReadPropertyInteger('Verbrauchgesamt'),
-            $this->ReadPropertyInteger('VerbrauchTag'),
-            $this->ReadPropertyInteger('KostenTag'),
-            $this->ReadPropertyInteger('KostenGesamt'),
-            $this->ReadPropertyInteger('Fehler'),
-            $this->ReadPropertyInteger('Phasen'),
-            $this->ReadPropertyInteger('MaxLadeleistung'),
-            $this->ReadPropertyInteger('Kabel'),
-            $this->ReadPropertyInteger('Zugangskontrolle'),
-            $this->ReadPropertyInteger('Verriegelung'),
-            $this->ReadPropertyInteger('Reichweite')
-        ];
-        $refs = $this->GetReferenceList();
-            foreach($refs as $ref) {
-                $this->UnregisterReference($ref);
-            } 
-            foreach ($ids as $id) {
-                if ($id !== '') {
-                    $this->RegisterReference($id);
-                }
-            }
+        $ids = array_unique(array_filter(array_merge(
+            [$this->ReadPropertyInteger('bgImage')],
+            array_map(fn(string $prop) => $this->ReadPropertyInteger($prop), self::VARIABLE_PROPERTIES)
+        )));
 
-
+        // Bestehende Referenzen leeren und neu setzen
+        foreach ($this->GetReferenceList() as $ref) {
+            $this->UnregisterReference($ref);
+        }
+        foreach ($ids as $id) {
+            $this->RegisterReference($id);
+        }
 
         // Aktualisiere registrierte Nachrichten
         foreach ($this->GetMessageList() as $senderID => $messageIDs)
@@ -96,53 +75,74 @@ class TileVisuWallboxKachel extends IPSModule
             }
         }
 
-
-        foreach (['Status', 'Ladeleistung', 'SOC', 'ZielSOC', 'SOCschalter', 'ZielSOCschalter', 'Verbrauchgesamt', 'VerbrauchTag', 'KostenTag', 'KostenGesamt', 'Fehler', 'Phasen', 'MaxLadeleistung', 'Kabel', 'Zugangskontrolle', 'Verriegelung', 'Reichweite'] as $VariableProperty)        {
+        foreach (self::VARIABLE_PROPERTIES as $VariableProperty) {
             $this->RegisterMessage($this->ReadPropertyInteger($VariableProperty), VM_UPDATE);
         }
 
         // Schicke eine komplette Update-Nachricht an die Darstellung, da sich ja Parameter geändert haben können
         $this->UpdateVisualizationValue($this->GetFullUpdateMessage());
-    
     }
 
-    public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
+    /**
+     * Handles IPS variable update messages and forwards changed values
+     * to the HTML visualization in a single payload.
+     *
+     * @param int   $TimeStamp Milliseconds since epoch
+     * @param int   $SenderID  ID of the variable that triggered the message
+     * @param int   $Message   IPS message type (e.g. VM_UPDATE)
+     * @param array $Data      Additional message data
+     */
+    public function MessageSink($TimeStamp, $SenderID, $Message, $Data): void
     {
+        if ($Message !== VM_UPDATE) {
+            return;
+        }
 
-        foreach (['Status', 'Ladeleistung', 'SOC', 'ZielSOC', 'SOCschalter', 'ZielSOCschalter', 'Verbrauchgesamt', 'VerbrauchTag', 'KostenTag', 'KostenGesamt', 'Fehler', 'Phasen', 'MaxLadeleistung', 'Kabel', 'Zugangskontrolle', 'Verriegelung', 'Reichweite'] as $index => $VariableProperty)
-        {
-            if ($SenderID === $this->ReadPropertyInteger($VariableProperty))
-            {
-                
-
-                switch ($Message)
-                {
-                    case VM_UPDATE:
-                        
-                        // Teile der HTML-Darstellung den neuen Wert mit. Damit dieser korrekt formatiert ist, holen wir uns den von der Variablen via GetValueFormatted
-                        $this->UpdateVisualizationValue(json_encode([$VariableProperty => GetValueFormatted($this->ReadPropertyInteger($VariableProperty))]));
-                        $this->UpdateVisualizationValue(json_encode([$VariableProperty . 'Value' => GetValue($this->ReadPropertyInteger($VariableProperty))]));
-                        break; // Beende die Schleife, da der passende Wert gefunden wurde
-
-                }
+        foreach (self::VARIABLE_PROPERTIES as $property) {
+            if ($SenderID === $this->ReadPropertyInteger($property)) {
+                $this->UpdateVisualizationValue(json_encode([
+                    $property           => GetValueFormatted($SenderID),
+                    $property . 'Value' => GetValue($SenderID)
+                ]));
+                break;
             }
         }
     }
 
-
-    public function RequestAction($Ident, $value) {
-        // Nachrichten von der HTML-Darstellung schicken immer den Ident passend zur Eigenschaft und im Wert die Differenz, welche auf die Variable gerechnet werden soll
+    /**
+     * Receives actions from the HTML visualization and relays them to the
+     * corresponding IPS variable. Supports boolean toggle and numeric offset
+     * writes for integer & float variables.
+     *
+     * @param string $Ident  Name of the module property that holds the variable ID
+     * @param mixed  $value  Value or offset supplied by the front-end
+     */
+    public function RequestAction($Ident, $value): void
+    {
         $variableID = $this->ReadPropertyInteger($Ident);
         if (!IPS_VariableExists($variableID)) {
-            $this->SendDebug('Error in RequestAction', 'Variable to be updated does not exist', 0);
+            $this->SendDebug('RequestAction', "Variable for ident {$Ident} does not exist", 0);
             return;
         }
-            // Umschalten des Werts der Variable
-        $currentValue = GetValue($variableID);
-        //SetValue($variableID, !$currentValue);
-        RequestAction($variableID, !$currentValue);
-    }
 
+        $currentValue = GetValue($variableID);
+        $variable     = IPS_GetVariable($variableID);
+
+        switch ($variable['VariableType']) {
+            case 0: // Boolean
+                $newValue = !$currentValue;
+                break;
+            case 1: // Integer
+            case 2: // Float
+                $newValue = is_numeric($value) ? $currentValue + $value : $value;
+                break;
+            default:
+                $newValue = $value;
+                break;
+        }
+
+        RequestAction($variableID, $newValue);
+    }
 
     public function GetVisualizationTile()
     {
@@ -313,150 +313,151 @@ class TileVisuWallboxKachel extends IPSModule
         return $module . $images . $assets . $initialHandling;
     }
 
-
+    private const VARIABLE_PROPERTIES = ['Status', 'Ladeleistung', 'SOC', 'ZielSOC', 'SOCschalter', 'ZielSOCschalter', 'Verbrauchgesamt', 'VerbrauchTag', 'KostenTag', 'KostenGesamt', 'Fehler', 'Phasen', 'MaxLadeleistung', 'Kabel', 'Zugangskontrolle', 'Verriegelung', 'Reichweite'];
 
     // Generiere eine Nachricht, die alle Elemente in der HTML-Darstellung aktualisiert
     private function GetFullUpdateMessage() {
-
-       // $profilAssoziationen = $this->ReadPropertyString('ProfilAssoziazionen');
-
-        // Ausgabe des Wertes zur Debugging-Zwecken
-       // var_dump($profilAssoziationen);
-
         $result = [];
-    
-            //$result['status'] = $this->CheckAndGetValueFormatted('Status');
-            $result['status'] = IPS_VariableExists($this->ReadPropertyInteger('Status')) ? $this->CheckAndGetValueFormatted('Status') : null;
-            $result['statusvalue'] = IPS_VariableExists($this->ReadPropertyInteger('Status')) ? GetValue($this->ReadPropertyInteger('Status')) : null;
-            $result['ladeleistung'] = IPS_VariableExists($this->ReadPropertyInteger('Ladeleistung')) ? $this->CheckAndGetValueFormatted('Ladeleistung') : null;
-            $result['ladeleistungvalue'] = IPS_VariableExists($this->ReadPropertyInteger('Ladeleistung')) ? GetValue($this->ReadPropertyInteger('Ladeleistung')) : null;
-            $result['maxladeleistungvalue'] = IPS_VariableExists($this->ReadPropertyInteger('MaxLadeleistung')) ? GetValue($this->ReadPropertyInteger('MaxLadeleistung')) : null;
-            $result['SOC'] = IPS_VariableExists($this->ReadPropertyInteger('SOC')) ? $this->CheckAndGetValueFormatted('SOC') : null;
-            $result['SOCvalue'] = IPS_VariableExists($this->ReadPropertyInteger('SOC')) ? GetValue($this->ReadPropertyInteger('SOC')) : null;
-            $result['SOCschaltervalue'] = IPS_VariableExists($this->ReadPropertyInteger('SOCschalter')) ? GetValue($this->ReadPropertyInteger('SOCschalter')) : null;
-            $result['ZielSOC'] = IPS_VariableExists($this->ReadPropertyInteger('ZielSOC')) ? $this->CheckAndGetValueFormatted('ZielSOC') : null;
-            $result['ZielSOCschaltervalue'] = IPS_VariableExists($this->ReadPropertyInteger('ZielSOCschalter')) ? GetValue($this->ReadPropertyInteger('ZielSOCschalter')) : null;
-            $result['ZielSOCvalue'] = IPS_VariableExists($this->ReadPropertyInteger('ZielSOC')) ? GetValue($this->ReadPropertyInteger('ZielSOC')) : null;
-            $result['Verbrauchgesamt'] = IPS_VariableExists($this->ReadPropertyInteger('Verbrauchgesamt')) ? $this->CheckAndGetValueFormatted('Verbrauchgesamt') : null;
-            $result['verbrauchtag'] = IPS_VariableExists($this->ReadPropertyInteger('VerbrauchTag')) ? $this->CheckAndGetValueFormatted('VerbrauchTag') : null;
-            $result['kostentag'] = IPS_VariableExists($this->ReadPropertyInteger('KostenTag')) ? $this->CheckAndGetValueFormatted('KostenTag') : null;
-            $result['kostengesamt'] = IPS_VariableExists($this->ReadPropertyInteger('KostenGesamt')) ? $this->CheckAndGetValueFormatted('KostenGesamt') : null;
-            $result['Fehler'] = IPS_VariableExists($this->ReadPropertyInteger('Fehler')) ? $this->CheckAndGetValueFormatted('Fehler') : null;
-            $result['Phasen'] = IPS_VariableExists($this->ReadPropertyInteger('Phasen')) ? GetValue($this->ReadPropertyInteger('Phasen')) : null;            
-            $result['MaxLadeleistung'] = IPS_VariableExists($this->ReadPropertyInteger('MaxLadeleistung')) ? $this->CheckAndGetValueFormatted('MaxLadeleistung') : null;
-            $result['Kabel'] = IPS_VariableExists($this->ReadPropertyInteger('Kabel')) ? $this->CheckAndGetValueFormatted('Kabel') : null;
-            $result['Zugangskontrolle'] = IPS_VariableExists($this->ReadPropertyInteger('Zugangskontrolle')) ? $this->CheckAndGetValueFormatted('Zugangskontrolle') : null;
-            $result['Verriegelung'] = IPS_VariableExists($this->ReadPropertyInteger('Verriegelung')) ? $this->CheckAndGetValueFormatted('Verriegelung') : null;
-            $result['Reichweite'] = IPS_VariableExists($this->ReadPropertyInteger('Reichweite')) ? $this->CheckAndGetValueFormatted('Reichweite') : null;
-           
-            
-            
-            
-            $result['statusschriftgroesse'] =  $this->ReadPropertyFloat('StatusSchriftgroesse');
-            $result['programmschriftgroesse'] =  $this->ReadPropertyFloat('ProgrammSchriftgroesse');
-            $result['infoschriftgroesse'] =  $this->ReadPropertyFloat('InfoSchriftgroesse');
-            $result['balkenschriftgroesse'] =  $this->ReadPropertyFloat('BalkenSchriftgroesse');
-            $result['BalkenVerlaufFarbe1'] =  '#' . sprintf('%06X', $this->ReadPropertyInteger('BalkenVerlaufFarbe1'));
-            $result['BalkenVerlaufFarbe2'] =  '#' . sprintf('%06X', $this->ReadPropertyInteger('BalkenVerlaufFarbe2'));
-            $result['BalkenVerlaufSOCFarbe1'] =  '#' . sprintf('%06X', $this->ReadPropertyInteger('BalkenVerlaufSOCFarbe1'));
-            $result['BalkenVerlaufSOCFarbe2'] =  '#' . sprintf('%06X', $this->ReadPropertyInteger('BalkenVerlaufSOCFarbe2'));
-            $result['BildBreite'] =  $this->ReadPropertyFloat('BildBreite');
-            $result['bildtransparenz'] =  $this->ReadPropertyFloat('Bildtransparenz');
-            $result['kachelhintergrundfarbe'] =  '#' . sprintf('%06X', $this->ReadPropertyInteger('Kachelhintergrundfarbe'));
 
-            $imageID = $this->ReadPropertyInteger('bgImage');
-            if (IPS_MediaExists($imageID)) {
-                $image = IPS_GetMedia($imageID);
-                if ($image['MediaType'] === MEDIATYPE_IMAGE) {
-                    $imageFile = explode('.', $image['MediaFile']);
-                    $imageContent = '';
-                    // Falls ja, ermittle den Anfang der src basierend auf dem Dateitypen
-                    switch (end($imageFile)) {
-                        case 'bmp':
-                            $imageContent = 'data:image/bmp;base64,';
-                            break;
-    
-                        case 'jpg':
-                        case 'jpeg':
-                            $imageContent = 'data:image/jpeg;base64,';
-                            break;
-    
-                        case 'gif':
-                            $imageContent = 'data:image/gif;base64,';
-                            break;
-    
-                        case 'png':
-                            $imageContent = 'data:image/png;base64,';
-                            break;
-    
-                        case 'ico':
-                            $imageContent = 'data:image/x-icon;base64,';
-                            break;
-                    }
+        // Abbildung: Eigenschaft -> Schlüsselname in der Darstellung (formatierter Wert)
+        $formattedKeys = [
+            'Status'             => 'status',
+            'Ladeleistung'       => 'ladeleistung',
+            'SOC'                => 'SOC',
+            'ZielSOC'            => 'ZielSOC',
+            'Verbrauchgesamt'    => 'Verbrauchgesamt',
+            'VerbrauchTag'       => 'verbrauchtag',
+            'KostenTag'          => 'kostentag',
+            'KostenGesamt'       => 'kostengesamt',
+            'Fehler'             => 'Fehler',
+            'MaxLadeleistung'    => 'MaxLadeleistung',
+            'Kabel'              => 'Kabel',
+            'Zugangskontrolle'   => 'Zugangskontrolle',
+            'Verriegelung'       => 'Verriegelung',
+            'Reichweite'         => 'Reichweite'
+        ];
 
-                    // Nur fortfahren, falls Inhalt gesetzt wurde. Ansonsten ist das Bild kein unterstützter Dateityp
-                    if ($imageContent) {
-                        // Hänge base64-codierten Inhalt des Bildes an
-                        $imageContent .= IPS_GetMediaContent($imageID);
-                        $result['image1'] = $imageContent;
-                    }
+        // Abbildung: Eigenschaft -> Schlüsselname in der Darstellung (Rohwert)
+        $rawKeys = [
+            'Status'           => 'statusvalue',
+            'Ladeleistung'     => 'ladeleistungvalue',
+            'MaxLadeleistung'  => 'maxladeleistungvalue',
+            'SOC'              => 'SOCvalue',
+            'ZielSOC'          => 'ZielSOCvalue',
+            'SOCschalter'      => 'SOCschaltervalue',
+            'ZielSOCschalter'  => 'ZielSOCschaltervalue',
+            'Phasen'           => 'Phasen',
+            'Fehler'           => 'fehlervalue'
+        ];
 
-                }
+        // Durchlaufe alle Variablen-Eigenschaften
+        foreach (self::VARIABLE_PROPERTIES as $property) {
+            $id = $this->ReadPropertyInteger($property);
+            if (!IPS_VariableExists($id)) {
+                continue;
             }
-            else{
-                $imageContent = 'data:image/png;base64,';
-                $imageContent .= base64_encode(file_get_contents(__DIR__ . '/../imgs/kachelhintergrund1.png'));
 
+            if (isset($formattedKeys[$property])) {
+                $result[$formattedKeys[$property]] = $this->CheckAndGetValueFormatted($property);
+            }
+            if (isset($rawKeys[$property])) {
+                $result[$rawKeys[$property]] = GetValue($id);
+            }
+        }
 
-                if ($this->ReadPropertyBoolean('BG_Off')) {
-                    $result['image1'] = $imageContent;
-                }
-            } 
+        // Float-/Style Eigenschaften
+        $floatProps = [
+            'StatusSchriftgroesse'    => 'statusschriftgroesse',
+            'ProgrammSchriftgroesse'  => 'programmschriftgroesse',
+            'InfoSchriftgroesse'      => 'infoschriftgroesse',
+            'BalkenSchriftgroesse'    => 'balkenschriftgroesse',
+            'BildBreite'              => 'BildBreite',
+            'Bildtransparenz'         => 'bildtransparenz'
+        ];
+        foreach ($floatProps as $prop => $key) {
+            $result[$key] = $this->ReadPropertyFloat($prop);
+        }
 
+        // Integer Farb-Eigenschaften (Hex-Werte)
+        $colorProps = [
+            'BalkenVerlaufFarbe1'     => 'BalkenVerlaufFarbe1',
+            'BalkenVerlaufFarbe2'     => 'BalkenVerlaufFarbe2',
+            'BalkenVerlaufSOCFarbe1'  => 'BalkenVerlaufSOCFarbe1',
+            'BalkenVerlaufSOCFarbe2'  => 'BalkenVerlaufSOCFarbe2',
+            'Kachelhintergrundfarbe'  => 'kachelhintergrundfarbe'
+        ];
+        foreach ($colorProps as $prop => $key) {
+            $result[$key] = '#' . sprintf('%06X', $this->ReadPropertyInteger($prop));
+        }
 
+        // Hintergrundbild
+        $bgImage = $this->GetBackgroundImageBase64();
+        if ($bgImage !== '') {
+            $result['image1'] = $bgImage;
+        }
 
         return json_encode($result);
     }
 
-
-
-    public function UpdateList($StatusID)
+    /**
+     * Generic helper to convert an IPS media image to a base64 data URI.
+     * Provides a fallback image if the media ID is not valid.
+     *
+     * @param int    $imageID      IPS media object ID
+     * @param string $fallbackPath Absolute filesystem path to fallback image
+     *
+     * @return string Base64 encoded data URI
+     */
+    private function GetMediaImageBase64(int $imageID, string $fallbackPath): string
     {
-        $listData = []; // Hier sammeln Sie die Daten für Ihre Liste
-    
-        $id = $StatusID;
-
-        // Prüfen, ob die übergebene ID einer existierenden Variable entspricht
-        if (IPS_VariableExists($id)) {
-            // Auslesen des Variablenprofils
-            $variable = IPS_GetVariable($id);
-            $profileName = $variable['VariableCustomProfile'] ?: $variable['VariableProfile'];
-            
-            if ($profileName != '') {
-                $profile = IPS_GetVariableProfile($profileName);
-    
-                // Durchlaufen der Profilassoziationen
-                foreach ($profile['Associations'] as $association) {
-                    $listData[] = [
-                        'AssoziationName' => $association['Name'],
-                        'AssoziationValue' => $association['Value'],
-                        'Bildauswahl' => 'goe_aus',
-                        'StatusColor' => '-1'
-                    ];
+        if (IPS_MediaExists($imageID)) {
+            $image = IPS_GetMedia($imageID);
+            if ($image['MediaType'] === MEDIATYPE_IMAGE) {
+                $extension = strtolower(pathinfo($image['MediaFile'], PATHINFO_EXTENSION));
+                $mime = '';
+                switch ($extension) {
+                    case 'bmp':  $mime = 'image/bmp'; break;
+                    case 'jpg':
+                    case 'jpeg': $mime = 'image/jpeg'; break;
+                    case 'gif':  $mime = 'image/gif'; break;
+                    case 'png':  $mime = 'image/png'; break;
+                    case 'webp': $mime = 'image/webp'; break;
+                    case 'ico':  $mime = 'image/x-icon'; break;
+                }
+                if ($mime !== '') {
+                    return 'data:' . $mime . ';base64,' . IPS_GetMediaContent($imageID);
                 }
             }
-        } 
-    
-        // Konvertieren Sie Ihre Liste in JSON und aktualisieren Sie das Konfigurationsformular
-        $jsonListData = json_encode($listData);
-        $this->UpdateFormField('ProfilAssoziazionen', 'values', $jsonListData);
+        }
+
+        $extension = strtolower(pathinfo($fallbackPath, PATHINFO_EXTENSION));
+        $mime = $extension === 'webp' ? 'image/webp' : 'image/' . $extension;
+        return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($fallbackPath));
     }
-    
-    
 
+    /**
+     * Compatibility wrapper for old code – provides the background image
+     * Base64 string while preserving the original BG_Off behaviour.
+     *
+     * @return string Base64 encoded data URI or empty string
+     */
+    private function GetBackgroundImageBase64(): string
+    {
+        $imageID = $this->ReadPropertyInteger('bgImage');
+        $fallback = __DIR__ . '/../imgs/kachelhintergrund1.png';
 
+        // Try media image first
+        if (IPS_MediaExists($imageID)) {
+            return $this->GetMediaImageBase64($imageID, $fallback);
+        }
 
+        // If BG_Off is enabled, deliver fallback image; otherwise no image
+        if ($this->ReadPropertyBoolean('BG_Off')) {
+            return 'data:image/png;base64,' . base64_encode(file_get_contents($fallback));
+        }
 
+        return '';
+    }
 
     private function CheckAndGetValueFormatted($property) {
         $id = $this->ReadPropertyInteger($property);
@@ -465,7 +466,6 @@ class TileVisuWallboxKachel extends IPSModule
         }
         return false;
     }
-
 
     private function GetColor($id) {
         $variable = IPS_GetVariable($id);
@@ -484,7 +484,6 @@ class TileVisuWallboxKachel extends IPSModule
         }
         return "";
     }
-
 
     private function GetColorRGB($hexcolor) {
         $transparenz = $this->ReadPropertyFloat('InfoMenueTransparenz');
@@ -552,5 +551,36 @@ class TileVisuWallboxKachel extends IPSModule
         return $icon;
     }
 
+    public function UpdateList($StatusID)
+    {
+        $listData = []; // Hier sammeln Sie die Daten für Ihre Liste
+    
+        $id = $StatusID;
+
+        // Prüfen, ob die übergebene ID einer existierenden Variable entspricht
+        if (IPS_VariableExists($id)) {
+            // Auslesen des Variablenprofils
+            $variable = IPS_GetVariable($id);
+            $profileName = $variable['VariableCustomProfile'] ?: $variable['VariableProfile'];
+            
+            if ($profileName != '') {
+                $profile = IPS_GetVariableProfile($profileName);
+    
+                // Durchlaufen der Profilassoziationen
+                foreach ($profile['Associations'] as $association) {
+                    $listData[] = [
+                        'AssoziationName' => $association['Name'],
+                        'AssoziationValue' => $association['Value'],
+                        'Bildauswahl' => 'goe_aus',
+                        'StatusColor' => '-1'
+                    ];
+                }
+            }
+        } 
+    
+        // Konvertieren Sie Ihre Liste in JSON und aktualisieren Sie das Konfigurationsformular
+        $jsonListData = json_encode($listData);
+        $this->UpdateFormField('ProfilAssoziazionen', 'values', $jsonListData);
+    }
 }
 ?>
