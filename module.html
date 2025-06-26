@@ -354,7 +354,7 @@
         /* Ziel-SOC-Text: Alternative Position rechts vom Zielindikator */
         #zielsoc_text_element.position-before-bar {
             right: auto; /* 'right' zurücksetzen */
-    left: calc(100% - var(--soc_ziel) - 5px); /* 5px links vom Strich */
+            left: calc(100% - var(--soc_ziel) + 5px); /* 5px links vom Strich */
             /* Farbe bleibt unverändert, Basisklasse regelt Textfarbe */
         }
 
@@ -931,14 +931,6 @@
             const zielsocValueString = getComputedStyle(root).getPropertyValue('--zielsocvalue').trim();
             if (!zielsocValueString) {
                 return; // Abbruch, wenn Variable nicht gesetzt
-            }
-
-            // Ziel-SOC-Wert im UI anzeigen
-            const zielsocValueDisplay = document.getElementById('zielsoc_value');
-            if (zielsocValueDisplay) {
-                // Wert als Prozent mit maximal einer Nachkommastelle, z.B. "80 %"
-                const zielsocValueNum = parseFloat(zielsocValueString);
-                zielsocValueDisplay.textContent = zielsocValueNum.toLocaleString('de-DE', {maximumFractionDigits: 1}) + ' %';
             }
 
             // Wert in Zahl umwandeln
