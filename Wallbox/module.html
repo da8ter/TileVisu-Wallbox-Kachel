@@ -342,7 +342,7 @@
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    right: calc(var(--soc_ziel) + 5px); /* 5px rechts vom Strich */
+    right: calc(var(--soc_ziel) + 5px); /* 5px Abstand zum Zielindikator */
     color: inherit; /* Standardschriftfarbe verwenden */
     z-index: 2;
     font-size: var(--balkenschriftgroesse, 12px);
@@ -354,7 +354,7 @@
         /* Ziel-SOC-Text: Alternative Position rechts vom Zielindikator */
         #zielsoc_text_element.position-before-bar {
             right: auto; /* 'right' zurücksetzen */
-            left: calc(100% - var(--soc_ziel) + 5px); /* 5px links vom Strich */
+    left: calc(100% - var(--soc_ziel) - 5px); /* 5px Abstand zum Zielindikator */
             /* Farbe bleibt unverändert, Basisklasse regelt Textfarbe */
         }
 
@@ -692,12 +692,12 @@
                         break;
                     case 'socvalue':
                         root.style.setProperty('--socvalue', value);
-                        updateZielSOCTextPosition(); // Textposition für Ziel-SOC aktualisieren
+                        //updateZielSOCTextPosition(); // Textposition für Ziel-SOC aktualisieren
                         break;
                     case 'soc':
                         var element = document.getElementById(paramKey);
                         if (element) element.textContent = value;
-                        updateZielSOCTextPosition(); // Textposition für Ziel-SOC aktualisieren
+                        //updateZielSOCTextPosition(); // Textposition für Ziel-SOC aktualisieren
                         break;
                     case 'zielsocvalue':
                         root.style.setProperty('--zielsocvalue', decodedData[parameter]);
@@ -840,17 +840,17 @@
                         }
                         break;
                     case 'zielsocschaltervalue':
-                        const zielsocLineElement = document.getElementById('zielsoc_line_element');
-                        const zielsocTextElement = document.getElementById('zielsoc_text_element');
-                        if (decodedData[parameter] === true) {
-                            // Ziel-SOC-Elemente einblenden
-                            if (zielsocLineElement) zielsocLineElement.style.display = 'block';
-                            if (zielsocTextElement) zielsocTextElement.style.display = 'inline';
-                        }
-                        else {
-                            // Ziel-SOC-Elemente ausblenden
-                            if (zielsocLineElement) zielsocLineElement.style.display = 'none';
-                            if (zielsocTextElement) zielsocTextElement.style.display = 'none';
+                        const zielsocContainer = document.getElementById('zielsoc_container');
+                        if (zielsocContainer) {
+                            if (decodedData[parameter] === true) {
+                                zielsocContainer.classList.remove('hidden');
+                                updateZielSOCTextPosition();
+                                setTimeout(updateZielSOCTextPosition, 50); // z.B. 50ms später nochmal
+                                console.log('[DEBUG] zielsocschaltervalue:', decodedData[parameter], '| zielsoc_container sichtbar:', !zielsocContainer.classList.contains('hidden'));
+                            } else {
+                                zielsocContainer.classList.add('hidden');
+                                console.log('[DEBUG] zielsocschaltervalue:', decodedData[parameter], '| zielsoc_container sichtbar:', !zielsocContainer.classList.contains('hidden'));
+                            }
                         }
                         break;
                     case 'balkenverlaufsocfarbe1':
@@ -915,72 +915,47 @@
             }
         }
 
-        /**
-         * Aktualisiert die Position und Sichtbarkeit des Ziel-SOC-Textes
-         */
+
+        // Globale Hilfsfunktion für Ziel-SOC-Text-Update
         function updateZielSOCTextPosition() {
+            const zielsocContainer = document.getElementById('zielsoc_container');
+            //if (!zielsocContainer || zielsocContainer.classList.contains('hidden')) return;
+
             const root = document.documentElement;
             const zielsocTextElement = document.getElementById('zielsoc_text_element');
             const socElement = document.getElementById('soc');
-
-            if (!zielsocTextElement || !socElement) {
-                return; // Abbruch, wenn Element nicht gefunden
-            }
-
-            // Ziel-SOC-Wert (CSS-Variable) auslesen
             const zielsocValueString = getComputedStyle(root).getPropertyValue('--zielsocvalue').trim();
-            if (!zielsocValueString) {
-                return; // Abbruch, wenn Variable nicht gesetzt
-            }
-
-            // Ziel-SOC-Wert im UI anzeigen
-            const zielsocValueDisplay = document.getElementById('zielsoc_value');
-            if (zielsocValueDisplay) {
+            if (zielsocTextElement && socElement && zielsocValueString) {
+                // Wert setzen
                 const zielsocValueNum = parseFloat(zielsocValueString);
-                zielsocValueDisplay.textContent = zielsocValueNum.toLocaleString('de-DE', {maximumFractionDigits: 1}) + ' %';
+                const zielsocValueDisplay = document.getElementById('zielsoc_value');
+                if (zielsocValueDisplay) {
+                    zielsocValueDisplay.textContent = zielsocValueNum.toLocaleString('de-DE', {maximumFractionDigits: 1}) + ' %';
+                }
+                // Positionierung
+                if (zielsocValueNum > 50) {
+                    zielsocTextElement.classList.remove('position-before-bar');
+                } else {
+                    zielsocTextElement.classList.add('position-before-bar');
+                }
+                // Überlappungserkennung
+                const zielsocRect = zielsocTextElement.getBoundingClientRect();
+                const socRect = socElement.getBoundingClientRect();
+                const overlap = !(
+                    zielsocRect.right < socRect.left ||
+                    zielsocRect.left > socRect.right ||
+                    zielsocRect.bottom < socRect.top ||
+                    zielsocRect.top > socRect.bottom
+                );
+                if (overlap) {
+                    zielsocTextElement.style.visibility = 'hidden';
+                    console.log('[DEBUG] Ziel-SOC-Text overlap:', overlap, '| Sichtbarkeit: hidden');
+                } else {
+                    zielsocTextElement.style.visibility = 'visible';
+                    console.log('[DEBUG] Ziel-SOC-Text overlap:', overlap, '| Sichtbarkeit: visible');
+                }
             }
-
-            // Wert in Zahl umwandeln
-            let zielsocValue = parseFloat(zielsocValueString); // Variable nur einmal deklarieren
-
-            // Textposition je nach Ziel-SOC-Wert anpassen
-            if (zielsocValue >= 50) {
-                // Ziel-SOC ≥ 50%: Text links vom Zielindikator
-                zielsocTextElement.classList.remove('position-before-bar');
-            } else {
-                // Ziel-SOC < 50%: Text rechts vom Zielindikator
-                zielsocTextElement.classList.add('position-before-bar');
-            }
-
-    // Prüfen, ob sich Ziel-SOC-Text und aktueller SOC-Text überlappen
-    // Element sichtbar machen, damit getBoundingClientRect korrekt funktioniert
-    zielsocTextElement.style.display = '';
-    const zielsocRect = zielsocTextElement.getBoundingClientRect();
-    const socRect = socElement.getBoundingClientRect();
-
-    // Überlappung zwischen Ziel-SOC-Text und SOC erkennen
-    const overlap = !(
-        zielsocRect.right < socRect.left ||
-        zielsocRect.left > socRect.right ||
-        zielsocRect.bottom < socRect.top ||
-        zielsocRect.top > socRect.bottom
-    );
-
-    // Ziel-SOC-Linien-Element holen
-    const zielsocLineElement = document.getElementById('zielsoc_line_element');
-    if (zielsocLineElement) {
-        zielsocLineElement.style.opacity = overlap ? '1' : '1';
-    }
-
-    // Zieltext ausblenden, falls Überlappung erkannt wurde
-    if (overlap) {
-        zielsocTextElement.style.display = 'none';
-    } else {
-        // Zieltext einblenden, falls keine Überlappung
-        zielsocTextElement.style.display = '';
-    }
-}
-
+        }
 </script>
 
 </head>
@@ -1004,14 +979,15 @@
             </div>
             <div class="hidden" id="socdiv">
                 <div class="balken_rechts" id="soc_balken_container">
-                    <div class="balken_links_soc"> <span class="balken_links_text_label"><b>SOC:</b>&nbsp;<span
-                                id="soc">0</span></span>
-                    </div>
-                    <div id="zielsoc_line_element">
-  <div class="soc-triangle soc-triangle-top"></div>
-  <div class="soc-triangle soc-triangle-bottom"></div>
-</div>
-                    <span id="zielsoc_text_element"><b>Target SOC:</b> <span id="zielsoc_value">0&nbsp;%</span></span>
+    <div class="balken_links_soc"> <span class="balken_links_text_label"><b>SOC:</b>&nbsp;<span id="soc">0</span></span>
+    </div>
+    <div id="zielsoc_container" class="hidden">
+        <div id="zielsoc_line_element">
+            <div class="soc-triangle soc-triangle-top"></div>
+            <div class="soc-triangle soc-triangle-bottom"></div>
+        </div>
+        <span id="zielsoc_text_element"><b>Target SOC:</b> <span id="zielsoc_value">0&nbsp;%</span></span>
+    </div>
                 </div>
             </div>
             <div class="container_daten">
