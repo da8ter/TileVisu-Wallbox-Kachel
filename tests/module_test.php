@@ -105,6 +105,18 @@ $count = count($m->updates);
 $m->MessageSink(0, 103, VM_UPDATE, [NAN, true, 45, 1]);
 check(count($m->updates) === $count, 'An unencodable update is not sent (no TypeError)');
 
+echo '--- Startwerte sicher im Skriptblock' . PHP_EOL;
+$boese = "O'Neil \"x\" \\ Zeile1\nZeile2 </script><script>alert(1)</script> & <b> <!--<script> x";
+world();
+$m = tile();
+alleVariablen($m, ['Kabel' => [$boese, $boese], 'Status' => [2, $boese]]);
+$m->ApplyChanges();
+$t = parts($m);
+check($t['state']['Kabel'] === $boese && $t['state']['status'] === $boese, 'Initial values with quotes, backslash, newline and </script> arrive unchanged');
+check(substr_count($t['html'], '</script>') === substr_count($moduleHtml, '</script>') + 3 && preg_match('~[<>&]~', $t['raw']['state']) === 0,
+    'No <, > or & of a value in the initial script: it can neither close the script nor hide its end tag (<!--<script>)');
+check(json_decode(end($m->updates), true)['Kabel'] === $boese, 'The ApplyChanges message carries the same value as JSON');
+
 echo '--- Bild-Hook: Adressen statt Base64' . PHP_EOL;
 $root = dirname(__DIR__);
 $bytes = static fn (string $path): string => (string) file_get_contents($root . '/' . $path);
@@ -284,10 +296,15 @@ if ($alt === null) {
         $korrigiert = static fn (string $text): string => str_replace('data:image/png;base64,' . $platzhalter, 'data:image/webp;base64,' . $platzhalter, $text);
         $betroffen = array_keys(array_filter($vorher, static fn (array $k): bool => $korrigiert($k['tail']) !== $k['tail']));
         check($betroffen === ['eigene Bilder ohne Medien', 'Bildauswahl 7, ein eigenes Bild'], 'The placeholder type differs only where the placeholder is shown');
+        // Zweite gewollte Abweichung: im Start-Skript stehen <, > und & jetzt maskiert (\u003C, \u003E, \u0026)
+        $maskiert = static fn (string $tail): string => (string) preg_replace_callback('~<script>handleMessage\(("(?:[^"\\\\]++|\\\\.)*+")\)</script>\z~s',
+            static fn (array $x): string => '<script>handleMessage(' . json_encode(json_decode($x[1]), JSON_HEX_TAG | JSON_HEX_AMP) . ')</script>', $tail);
+        $betroffen = array_keys(array_filter($vorher, static fn (array $k): bool => $maskiert($k['tail']) !== $k['tail']));
+        check($betroffen === ['Sonderzeichen'], 'The masking changes only the configuration whose values contain <, > or &');
         foreach ($nachher as $name => $konfiguration) {
             check($konfiguration['warnungen'] === [], $name . ': no warning');
             check($konfiguration['updates'] === $vorher[$name]['updates'], $name . ': messages byte for byte as before');
-            check($konfiguration['tail'] === $korrigiert($vorher[$name]['tail']), $name . ': tile document byte for byte as before');
+            check($konfiguration['tail'] === $maskiert($korrigiert($vorher[$name]['tail'])), $name . ': tile document byte for byte as before');
         }
         $html = static fn (string $dir): int => strlen((string) file_get_contents($dir . '/Wallbox/module.html'));
         echo 'Kacheldokument ' . ALTSTAND . ' / ohne Hook / mit Hook: ' . ($html($alt) + strlen($vorher['alle Variablen']['tail'])) . ' / '

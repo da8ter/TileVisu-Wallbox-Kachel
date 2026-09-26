@@ -242,8 +242,11 @@ class TileVisuWallboxKachel extends IPSModuleStrict
         // Erstaufbau: die Kachel bekommt den vollen Stand, danach geht jede Wertänderung wieder hinaus
         $this->SetBuffer('UpdateHashes', '');
 
-        // Füge ein Skript hinzu, um beim Laden, analog zu Änderungen bei Laufzeit, die Werte zu setzen
-        $initialHandling = '<script>handleMessage(' . json_encode($this->GetFullUpdateMessage()) . ')</script>';
+        // Füge ein Skript hinzu, um beim Laden, analog zu Änderungen bei Laufzeit, die Werte zu setzen.
+        // Die Nachricht steht als JS-Stringliteral im Skriptblock; <, > und & maskiert (JSON_HEX_TAG, JSON_HEX_AMP):
+        // ein Wert mit "<!--<script>" versetzte den HTML-Parser sonst in einen Zustand, in dem das schließende
+        // </script> nicht mehr zählt - das Start-Skript lief dann gar nicht.
+        $initialHandling = '<script>handleMessage(' . json_encode($this->GetFullUpdateMessage(), JSON_HEX_TAG | JSON_HEX_AMP) . ')</script>';
 
         // Wallbox-Bilder: Hook-Adresse, ohne Hook oder über der Ausgabegrenze als Data-URI wie bisher
         [$imageOff, $imageOn] = $this->WallboxImageSources();
