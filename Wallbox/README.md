@@ -17,7 +17,7 @@ Support: https://community.symcon.de/t/html-kachelsammlung-bewohnerstatus-waerme
 
 ### 2. Voraussetzungen
 
-- IP-Symcon ab Version 7.1
+- IP-Symcon ab Version 8.1
 
 ### 3. Software-Installation
 

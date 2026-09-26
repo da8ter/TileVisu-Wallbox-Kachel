@@ -1,7 +1,13 @@
 <?php
-class TileVisuWallboxKachel extends IPSModule
+
+declare(strict_types=1);
+
+class TileVisuWallboxKachel extends IPSModuleStrict
 {
-    public function Create()
+    // Die Variablen der Kachel (Referenzen, Nachrichten, Updates, RequestAction)
+    private const VARIABLE_PROPERTIES = ['Status', 'Ladeleistung', 'SOC', 'ZielSOC', 'SOCschalter', 'ZielSOCschalter', 'Verbrauchgesamt', 'VerbrauchTag', 'KostenTag', 'KostenGesamt', 'Fehler', 'Phasen', 'MaxLadeleistung', 'Kabel', 'Zugangskontrolle', 'Verriegelung', 'Reichweite'];
+
+    public function Create(): void
     {
         // Nie diese Zeile löschen!
         parent::Create();
@@ -39,7 +45,7 @@ class TileVisuWallboxKachel extends IPSModule
         $this->RegisterPropertyString('ProfilAssoziazionen', '[]');
         $this->RegisterPropertyInteger("Bild_An", 0);
         $this->RegisterPropertyInteger("Bild_Aus", 0);
-        $this->RegisterPropertyBoolean('BG_Off', 1);
+        $this->RegisterPropertyBoolean('BG_Off', true);
         $this->RegisterPropertyInteger("bgImage", 0);
         $this->RegisterPropertyFloat('Bildtransparenz', 0.7);
         $this->RegisterPropertyInteger('Kachelhintergrundfarbe', -1);
@@ -48,14 +54,21 @@ class TileVisuWallboxKachel extends IPSModule
         $this->SetVisualizationType(1);
     }
 
-    public function ApplyChanges()
+    public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+
+        // Kein Heavy Work vor KR_READY: Referenzen, Nachrichten und Variablenzugriffe erst, wenn der Kernel
+        // bereit ist. IPS_KERNELSTARTED ruft ApplyChanges dann erneut auf.
+        if (IPS_GetKernelRunlevel() !== KR_READY) {
+            $this->RegisterMessage(0, IPS_KERNELSTARTED);
+            return;
+        }
 
         //Referenzen Registrieren
         $ids = array_unique(array_filter(array_merge(
             [$this->ReadPropertyInteger('bgImage')],
-            array_map(fn(string $prop) => $this->ReadPropertyInteger($prop), self::VARIABLE_PROPERTIES)
+            array_map(fn(string $prop): int => $this->ReadPropertyInteger($prop), self::VARIABLE_PROPERTIES)
         )));
 
         // Bestehende Referenzen leeren und neu setzen
@@ -92,18 +105,26 @@ class TileVisuWallboxKachel extends IPSModule
      * @param int   $Message   IPS message type (e.g. VM_UPDATE)
      * @param array $Data      Additional message data
      */
-    public function MessageSink($TimeStamp, $SenderID, $Message, $Data): void
+    public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
+        if ($Message === IPS_KERNELSTARTED) {
+            $this->ApplyChanges();
+            return;
+        }
         if ($Message !== VM_UPDATE) {
             return;
         }
 
         foreach (self::VARIABLE_PROPERTIES as $property) {
             if ($SenderID === $this->ReadPropertyInteger($property)) {
-                $this->UpdateVisualizationValue(json_encode([
+                // null: der Wert lässt sich nicht als JSON kodieren (NAN, INF) - dann kein Update statt eines TypeError
+                $message = $this->EncodeJSON([
                     $property           => GetValueFormatted($SenderID),
                     $property . 'Value' => GetValue($SenderID)
-                ]));
+                ]);
+                if ($message !== null) {
+                    $this->UpdateVisualizationValue($message);
+                }
                 break;
             }
         }
@@ -115,10 +136,15 @@ class TileVisuWallboxKachel extends IPSModule
      * writes for integer & float variables.
      *
      * @param string $Ident  Name of the module property that holds the variable ID
-     * @param mixed  $value  Value or offset supplied by the front-end
+     * @param mixed  $Value  Value or offset supplied by the front-end
      */
-    public function RequestAction($Ident, $value): void
+    public function RequestAction(string $Ident, mixed $Value): void
     {
+        // Nur die Variablen-Eigenschaften der Kachel; andere Idents werden an der Systemgrenze abgewiesen,
+        // statt beim Lesen einer unbekannten Eigenschaft zu scheitern.
+        if (!in_array($Ident, self::VARIABLE_PROPERTIES, true)) {
+            throw new Exception('Invalid ident: ' . $Ident);
+        }
         $variableID = $this->ReadPropertyInteger($Ident);
         if (!IPS_VariableExists($variableID)) {
             $this->SendDebug('RequestAction', "Variable for ident {$Ident} does not exist", 0);
@@ -134,17 +160,17 @@ class TileVisuWallboxKachel extends IPSModule
                 break;
             case 1: // Integer
             case 2: // Float
-                $newValue = is_numeric($value) ? $currentValue + $value : $value;
+                $newValue = is_numeric($Value) ? $currentValue + $Value : $Value;
                 break;
             default:
-                $newValue = $value;
+                $newValue = $Value;
                 break;
         }
 
         RequestAction($variableID, $newValue);
     }
 
-    public function GetVisualizationTile()
+    public function GetVisualizationTile(): string
     {
         // Füge ein Skript hinzu, um beim Laden, analog zu Änderungen bei Laufzeit, die Werte zu setzen
         $initialHandling = '<script>handleMessage(' . json_encode($this->GetFullUpdateMessage()) . ')</script>';
@@ -175,7 +201,8 @@ class TileVisuWallboxKachel extends IPSModule
         }
         else {
 
-        // Prüfe vorweg, ob ein Bild ausgewählt wurde
+        // Prüfe vorweg, ob ein Bild ausgewählt wurde. Vorbelegt: ein Medienobjekt ohne Bild ergab eine undefinierte Variable
+        $imageContent = '';
         $imageID_Bild_An = $this->ReadPropertyInteger('Bild_An');
         if (IPS_MediaExists($imageID_Bild_An)) {
             $image = IPS_GetMedia($imageID_Bild_An);
@@ -222,7 +249,8 @@ class TileVisuWallboxKachel extends IPSModule
             
         } 
 
-                // Prüfe vorweg, ob ein Bild ausgewählt wurde
+                // Prüfe vorweg, ob ein Bild ausgewählt wurde (vorbelegt wie oben)
+                $imageContent2 = '';
                 $imageID_Bild_Aus = $this->ReadPropertyInteger('Bild_Aus');
                 if (IPS_MediaExists($imageID_Bild_Aus)) {
                     $image2 = IPS_GetMedia($imageID_Bild_Aus);
@@ -284,7 +312,8 @@ class TileVisuWallboxKachel extends IPSModule
         $statusMappingAnimation = [];
         foreach ($assoziationsArray as $item) {
             $statusMappingImage[$item['AssoziationValue']] = $item['Bildauswahl'];
-            $statusMappingAnimation[$item['AssoziationValue']] = $item['Animation'];
+            // Zeilen aus UpdateList haben bis zur ersten Auswahl keine Animation: null wie bisher, aber ohne Warnung
+            $statusMappingAnimation[$item['AssoziationValue']] = $item['Animation'] ?? null;
                       
             $statusMappingColor[$item['AssoziationValue']] = $item['StatusColor'] === -1 ? "" : sprintf('%06X', $item['StatusColor']);
 
@@ -313,10 +342,9 @@ class TileVisuWallboxKachel extends IPSModule
         return $module . $images . $assets . $initialHandling;
     }
 
-    private const VARIABLE_PROPERTIES = ['Status', 'Ladeleistung', 'SOC', 'ZielSOC', 'SOCschalter', 'ZielSOCschalter', 'Verbrauchgesamt', 'VerbrauchTag', 'KostenTag', 'KostenGesamt', 'Fehler', 'Phasen', 'MaxLadeleistung', 'Kabel', 'Zugangskontrolle', 'Verriegelung', 'Reichweite'];
-
     // Generiere eine Nachricht, die alle Elemente in der HTML-Darstellung aktualisiert
-    private function GetFullUpdateMessage() {
+    private function GetFullUpdateMessage(): string
+    {
         $result = [];
 
         // Abbildung: Eigenschaft -> Schlüsselname in der Darstellung (formatierter Wert)
@@ -396,7 +424,21 @@ class TileVisuWallboxKachel extends IPSModule
             $result['image1'] = $bgImage;
         }
 
-        return json_encode($result);
+        // Ein Wert, der sich nicht kodieren lässt, ergab bisher false (die Kachel zeigte nichts an); jetzt '{}'
+        return $this->EncodeJSON($result) ?? '{}';
+    }
+
+    // json_encode wie bisher mit Standard-Flags (maskierte Schrägstriche halten Werte aus dem Skript-Tag heraus);
+    // ungültiges UTF-8 wird ersetzt, statt die ganze Nachricht zu verlieren. null, wenn sich ein Wert nicht
+    // kodieren lässt (NAN, INF): UpdateVisualizationValue verlangt unter Module Strict einen String.
+    private function EncodeJSON(array $data): ?string
+    {
+        $json = json_encode($data, JSON_INVALID_UTF8_SUBSTITUTE);
+        if ($json === false) {
+            $this->SendDebug('JSON', json_last_error_msg(), 0);
+            return null;
+        }
+        return $json;
     }
 
     /**
@@ -459,7 +501,8 @@ class TileVisuWallboxKachel extends IPSModule
         return '';
     }
 
-    private function CheckAndGetValueFormatted($property) {
+    private function CheckAndGetValueFormatted(string $property): string|false
+    {
         $id = $this->ReadPropertyInteger($property);
         if (IPS_VariableExists($id)) {
             return GetValueFormatted($id);
@@ -467,91 +510,7 @@ class TileVisuWallboxKachel extends IPSModule
         return false;
     }
 
-    private function GetColor($id) {
-        $variable = IPS_GetVariable($id);
-        $Value = GetValue($id);
-        $profile = $variable['VariableCustomProfile'] ?: $variable['VariableProfile'];
-
-        if ($profile && IPS_VariableProfileExists($profile)) {
-            $p = IPS_GetVariableProfile($profile);
-            
-            foreach ($p['Associations'] as $association) {
-                if (isset($association['Value'], $association['Color']) && $association['Value'] == $Value) {
-                    return $association['Color'] === -1 ? "" : sprintf('%06X', $association['Color']);
-                    
-                }
-            }
-        }
-        return "";
-    }
-
-    private function GetColorRGB($hexcolor) {
-        $transparenz = $this->ReadPropertyFloat('InfoMenueTransparenz');
-        if($hexcolor != "-1")
-        {
-                $hexColor = sprintf('%06X', $hexcolor);
-                // Prüft, ob der Hex-Farbwert gültig ist
-                if (strlen($hexColor) == 6) {
-                    $r = hexdec(substr($hexColor, 0, 2));
-                    $g = hexdec(substr($hexColor, 2, 2));
-                    $b = hexdec(substr($hexColor, 4, 2));
-                    return "rgba($r, $g, $b, $transparenz)";
-                } else {
-                    // Fallback für ungültige Eingaben
-                    return $hexColor;
-                }
-        }
-        else {
-            return "";
-        }
-    }
-
-    private function GetIcon($id, $varicon) {
-        $variable = IPS_GetVariable($id);
-        $Value = GetValue($id);
-        $icon = "";
-        //Abfragen ob das Variablen-Icon oder das Profil-Icon verwendet werden soll
-        if($varicon == true){
-        $icon = IPS_GetObject($id);
-            if($icon['ObjectIcon'] != ""){
-                $icon = $icon['ObjectIcon'];
-            }
-            else {
-                $icon = "Transparent";
-            }
-        }
-        else {
-        // Profil-Icon abrufen
-        $profile = $variable['VariableCustomProfile'] ?: $variable['VariableProfile'];
-        $icon = "";
-
-        if ($profile && IPS_VariableProfileExists($profile)) {
-            $p = IPS_GetVariableProfile($profile);
-
-            foreach ($p['Associations'] as $association) {
-                if (isset($association['Value']) && $association['Icon'] != "" && $association['Value'] == $Value) {
-                    $icon = $association['Icon'];
-                    break;
-                }
-            }
-
-            if ($icon == "" && isset($p['Icon']) && $p['Icon'] != "") {
-                $icon = $p['Icon'];
-            }
-
-            if ($icon == "") {
-                $icon = "Transparent";
-            }
-        }
-        else {
-            $icon = "Transparent";
-        }
-        
-        }
-        return $icon;
-    }
-
-    public function UpdateList($StatusID)
+    public function UpdateList(int $StatusID): void
     {
         $listData = []; // Hier sammeln Sie die Daten für Ihre Liste
     
@@ -583,4 +542,3 @@ class TileVisuWallboxKachel extends IPSModule
         $this->UpdateFormField('ProfilAssoziazionen', 'values', $jsonListData);
     }
 }
-?>
