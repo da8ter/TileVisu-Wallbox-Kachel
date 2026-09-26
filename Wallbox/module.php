@@ -124,7 +124,9 @@ class TileVisuWallboxKachel extends IPSModuleStrict
             $this->RegisterMessage($this->ReadPropertyInteger($VariableProperty), VM_UPDATE);
         }
 
-        // Schicke eine komplette Update-Nachricht an die Darstellung, da sich ja Parameter geändert haben können
+        // Schicke eine komplette Update-Nachricht an die Darstellung, da sich ja Parameter geändert haben können.
+        // Die Prüfwerte der zuletzt gesendeten Nachrichten gelten danach nicht mehr.
+        $this->SetBuffer('UpdateHashes', '');
         $this->UpdateVisualizationValue($this->GetFullUpdateMessage());
     }
 
@@ -146,20 +148,49 @@ class TileVisuWallboxKachel extends IPSModuleStrict
         if ($Message !== VM_UPDATE) {
             return;
         }
+        // Symcon meldet jede Aktualisierung einer Variable, auch ohne neuen Wert: dann bleibt die Kachel, wie sie ist
+        if (!self::ValueChanged($Data)) {
+            return;
+        }
 
         foreach (self::VARIABLE_PROPERTIES as $property) {
             if ($SenderID === $this->ReadPropertyInteger($property)) {
-                // null: der Wert lässt sich nicht als JSON kodieren (NAN, INF) - dann kein Update statt eines TypeError
+                // null: der Wert lässt sich nicht als JSON kodieren (NAN, INF) - dann kein Update statt eines TypeError.
+                // Eine unveränderte Nachricht geht kein zweites Mal hinaus (Prüfwert je Eigenschaft).
                 $message = $this->EncodeJSON([
                     $property           => GetValueFormatted($SenderID),
                     $property . 'Value' => GetValue($SenderID)
                 ]);
                 if ($message !== null) {
-                    $this->UpdateVisualizationValue($message);
+                    $this->SendUpdateIfChanged($property, $message);
                 }
                 break;
             }
         }
+    }
+
+    // Symcon meldet mit VM_UPDATE jede Aktualisierung; $Data[1] sagt, ob sich der Wert geändert hat.
+    // Fehlt die Angabe (anderes Format), gilt sie als Änderung: lieber senden als eine verschlucken.
+    private static function ValueChanged(array $Data): bool
+    {
+        return !isset($Data[1]) || (bool) $Data[1];
+    }
+
+    // Schickt die Nachrichten eines Schlüssels nur, wenn sie sich von den zuletzt dazu gesendeten unterscheiden.
+    // Die Prüfwerte (md5) stehen im Puffer UpdateHashes; ApplyChanges und der Erstaufbau leeren ihn.
+    private function SendUpdateIfChanged(string $key, string ...$messages): void
+    {
+        $hashes = json_decode($this->GetBuffer('UpdateHashes'), true);
+        $hashes = is_array($hashes) ? $hashes : [];
+        $hash = md5(serialize($messages));
+        if (($hashes[$key] ?? null) === $hash) {
+            return;
+        }
+        foreach ($messages as $message) {
+            $this->UpdateVisualizationValue($message);
+        }
+        $hashes[$key] = $hash;
+        $this->SetBuffer('UpdateHashes', (string) json_encode($hashes));
     }
 
     /**
@@ -204,6 +235,9 @@ class TileVisuWallboxKachel extends IPSModuleStrict
 
     public function GetVisualizationTile(): string
     {
+        // Erstaufbau: die Kachel bekommt den vollen Stand, danach geht jede Wertänderung wieder hinaus
+        $this->SetBuffer('UpdateHashes', '');
+
         // Füge ein Skript hinzu, um beim Laden, analog zu Änderungen bei Laufzeit, die Werte zu setzen
         $initialHandling = '<script>handleMessage(' . json_encode($this->GetFullUpdateMessage()) . ')</script>';
 

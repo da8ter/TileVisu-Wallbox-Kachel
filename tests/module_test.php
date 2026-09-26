@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-// Wallbox-Kachel ohne laufendes Symcon: Module Strict, Bild-Hook, Payload wie bisher (Gegenprobe gegen 24f3ce5).
+// Wallbox-Kachel ohne laufendes Symcon: Module Strict, Bild-Hook, Nachrichtenfilter, Payload wie bisher
+// (Gegenprobe gegen 24f3ce5).
 require __DIR__ . '/bootstrap.php';
 set_error_handler(static function (int $severity, string $message, string $file, int $line): never {
     throw new ErrorException($message, 0, $severity, $file, $line);
@@ -125,6 +126,44 @@ function vergleich(): array
     return $ergebnis;
 }
 
+// VM_UPDATE nur bei echter Wertänderung: Zeilen [Bezeichnung, erwartete Nachrichten, gesendete Nachrichten].
+// Läuft auch gegen den Altstand; dort müssen genau die Zeilen fallen, die keine Nachricht erwarten.
+function nachrichtenfilter(): array
+{
+    world();
+    variable(701, 45, '45 %');
+    variable(702, 7.4, '7,4 kW');
+    $m = tile(12500);
+    $m->properties['SOC'] = 701;
+    $m->properties['Ladeleistung'] = 702;
+    $m->ApplyChanges();
+    $zeilen = [];
+    $zaehle = static function (string $label, int $erwartet, callable $aktion) use ($m, &$zeilen): void {
+        $vorher = count($m->updates);
+        $aktion();
+        $zeilen[] = [$label, $erwartet, count($m->updates) - $vorher];
+    };
+    // $Data wie von Symcon: [neuer Wert, geändert, alter Wert, Zeitstempel]
+    $update = static fn (int $id, array $data): callable => static fn () => $m->MessageSink(0, $id, VM_UPDATE, $data);
+    $zaehle('Update without a new value ($Data[1] false) sends nothing', 0, $update(701, [45, false, 45, 1]));
+    changeValue(701, 46, '46 %');
+    $zaehle('Changed value sends its message', 1, $update(701, [46, true, 45, 2]));
+    changeValue(702, 11.0, '11 kW');
+    $zaehle('Another variable sends its own message', 1, $update(702, [11.0, true, 7.4, 3]));
+    // Die Kachel liest den aktuellen Wert: nach mehreren schnellen Änderungen ist die Nachricht dieselbe
+    $zaehle('Identical message is not sent again (memory per variable)', 0, $update(701, [46, true, 45, 4]));
+    changeValue(701, 47, '47 %');
+    $zaehle('The next real change goes out again', 1, $update(701, [47, true, 46, 5]));
+    $zaehle('ApplyChanges still sends the full update', 1, static fn () => $m->ApplyChanges());
+    $zaehle('After ApplyChanges the same message goes out again', 1, $update(701, [47, true, 46, 6]));
+    $zaehle('... but only once', 0, $update(701, [47, true, 46, 7]));
+    $m->GetVisualizationTile();
+    $zaehle('After the initial build of a tile it goes out again', 1, $update(701, [47, true, 46, 8]));
+    $m->GetVisualizationTile();
+    $zaehle('Without $Data[1] (other format) the update is sent', 1, $update(702, []));
+    return $zeilen;
+}
+
 // Altstand in ein Temp-Verzeichnis entpacken; null ohne git oder ohne den Commit (etwa in einer flachen Kopie).
 function altstand(): ?string
 {
@@ -161,7 +200,7 @@ function imAltstand(string $dir, string $modus): mixed
     return json_decode((string) file_get_contents($datei), true, 512, JSON_THROW_ON_ERROR);
 }
 
-if (in_array($argv[1] ?? '', ['vergleich'], true)) {
+if (in_array($argv[1] ?? '', ['vergleich', 'nachrichtenfilter'], true)) {
     // Gegenprobe: dieselben Schritte mit der Kachel, die WALLBOX_MODULE geladen hat
     file_put_contents($argv[2], json_encode(($argv[1])(), JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION));
     exit(0);
@@ -388,12 +427,26 @@ $options['ScriptOutputBufferLimit'] = 'kaputt';
 check(str_starts_with(parts($g)['state']['image1'], '/hook/'), 'An unusable limit falls back to the factory 1 MiB');
 unset($options['ScriptOutputBufferLimit']);
 
-echo '--- Payload wie bisher (Gegenprobe gegen ' . ALTSTAND . ')' . PHP_EOL;
+echo '--- Nur bei echter Wertänderung' . PHP_EOL;
+$zeilen = nachrichtenfilter();
+foreach ($zeilen as [$label, $erwartet, $ist]) {
+    check($ist === $erwartet, $label . ' (' . $ist . ' messages)');
+}
+
+echo '--- Gegenprobe gegen ' . ALTSTAND . PHP_EOL;
 $alt = altstand();
 if ($alt === null) {
     echo 'SKIP: ' . ALTSTAND . ' not available, no comparison with the previous tile' . PHP_EOL;
 } else {
     try {
+        // Nachrichtenfilter: ohne ihn fallen genau die Prüfungen, die keine Nachricht erwarten
+        $vorherFilter = imAltstand($alt, 'nachrichtenfilter');
+        $fallend = array_column(array_filter($vorherFilter, static fn (array $z): bool => $z[1] !== $z[2]), 0);
+        $still = array_column(array_filter($zeilen, static fn (array $z): bool => $z[1] === 0), 0);
+        check(count($vorherFilter) === count($zeilen) && $still !== [] && $fallend === $still,
+            'Without the filter (' . ALTSTAND . ') exactly the ' . count($still) . ' checks expecting no message fail');
+
+        // Payload wie bisher: dieselben Konfigurationen, Byte für Byte
         $vorher = imAltstand($alt, 'vergleich');
         $nachher = vergleich();
         check($nachher['_eigenschaften'] === $vorher['_eigenschaften'], 'Same 34 properties with the same types and defaults');
