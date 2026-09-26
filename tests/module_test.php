@@ -5,202 +5,12 @@ declare(strict_types=1);
 // Wallbox-Kachel ohne laufendes Symcon: Module Strict, Bild-Hook, Nachrichtenfilter, Payload wie bisher
 // (Gegenprobe gegen 24f3ce5).
 require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/szenarien.php';
 set_error_handler(static function (int $severity, string $message, string $file, int $line): never {
     throw new ErrorException($message, 0, $severity, $file, $line);
 });
 
-const ALTSTAND = '24f3ce5'; // Stand vor der Überarbeitung: IPSModule, Base64-Bilder, jede Aktualisierung, Abo auf 0
-
-// Die 17 Variablen-Eigenschaften mit Beispielwerten: Eigenschaft => [Wert, formatierter Wert].
-const WERTE = [
-    'Status' => [2, 'Laden'], 'Ladeleistung' => [7.4, '7,4 kW'], 'SOC' => [45, '45 %'], 'ZielSOC' => [80, '80 %'],
-    'SOCschalter' => [true, 'An'], 'ZielSOCschalter' => [true, 'An'], 'Verbrauchgesamt' => [1234.5, '1.234,5 kWh'],
-    'VerbrauchTag' => [12.3, '12,3 kWh'], 'KostenTag' => [3.9, '3,90 €'], 'KostenGesamt' => [390.12, '390,12 €'],
-    'Fehler' => [0, 'Kein Fehler'], 'Phasen' => [3, '3'], 'MaxLadeleistung' => [11.0, '11 kW'], 'Kabel' => [32, '32 A'],
-    'Zugangskontrolle' => [false, 'Offen'], 'Verriegelung' => [1, 'Verriegelt'], 'Reichweite' => [250, '250 km'],
-];
-
-// Alle Variablen ab ID 101 zuordnen; liefert ihre IDs.
-function alleVariablen(TileVisuWallboxKachel $m, array $abweichend = []): array
-{
-    profile('WB.Status', [['Value' => 0.0, 'Name' => 'Bereit', 'Color' => -1], ['Value' => 2.0, 'Name' => 'Laden', 'Color' => 0x00FF00]]);
-    $id = 101;
-    foreach (array_replace(WERTE, $abweichend) as $property => [$wert, $text]) {
-        variable($id, $wert, $text, $property === 'Status' ? 'WB.Status' : '');
-        $m->properties[$property] = $id++;
-    }
-    return range(101, $id - 1);
-}
-
-// Konfigurationen für den Vergleich mit dem Altstand: Aufbau der Welt und der Eigenschaften, liefert die
-// Variablen, deren Aktualisierung (VM_UPDATE) mit verglichen wird.
-function konfigurationen(): array
-{
-    $bilder = static fn (int $auswahl, array $medien = []): Closure => static function (ProbeTile $m) use ($auswahl, $medien): array {
-        $m->properties['Bildauswahl'] = $auswahl;
-        foreach ($medien as $eigenschaft => [$id, $datei, $typ]) {
-            image($id, $datei, 'BILD-' . $datei, $typ);
-            $m->properties[$eigenschaft] = $id;
-        }
-        return [];
-    };
-    $bild = static fn (string $datei, int $typ = MEDIATYPE_IMAGE): array => [0, $datei, $typ];
-    $zuordnung = static fn (array $zeilen): Closure => static function (ProbeTile $m) use ($zeilen): array {
-        $m->properties['ProfilAssoziazionen'] = json_encode($zeilen);
-        return alleVariablen($m);
-    };
-    return [
-        'leer' => static fn (ProbeTile $m): array => [],
-        'alle Variablen' => static fn (ProbeTile $m): array => alleVariablen($m),
-        'Go-e Gemini' => $bilder(1),
-        'Universal' => $bilder(2),
-        'eigene Bilder ohne Medien' => $bilder(3),
-        'eigene Bilder jpg und png' => $bilder(3, ['Bild_An' => [501] + $bild('media/a.jpg'), 'Bild_Aus' => [502] + $bild('media/b.png')]),
-        'eigene Bilder bmp und ico' => $bilder(3, ['Bild_An' => [501] + $bild('media/a.bmp'), 'Bild_Aus' => [502] + $bild('media/b.ico')]),
-        'eigene Bilder gif und jpeg' => $bilder(3, ['Bild_An' => [501] + $bild('media/a.gif'), 'Bild_Aus' => [502] + $bild('media/b.jpeg')]),
-        'eigene Bilder JPG und webp' => $bilder(3, ['Bild_An' => [501] + $bild('media/a.JPG'), 'Bild_Aus' => [502] + $bild('media/b.webp')]),
-        'eigene Bilder ohne Bild' => $bilder(3, ['Bild_An' => [501] + $bild('ton.wav', 2), 'Bild_Aus' => [502] + $bild('ton.wav', 2)]),
-        'Bildauswahl 7, ein eigenes Bild' => $bilder(7, ['Bild_An' => [501] + $bild('media/a.png')]),
-        'Hintergrund jpg' => $bilder(0, ['bgImage' => [510] + $bild('media/bg.jpg')]),
-        'Hintergrund WEBP' => $bilder(0, ['bgImage' => [510] + $bild('media/bg.WEBP')]),
-        'Hintergrund svg' => $bilder(0, ['bgImage' => [510] + $bild('media/bg.svg')]),
-        'Hintergrund kein Bild' => $bilder(0, ['bgImage' => [510] + $bild('ton.wav', 2)]),
-        'ohne Standardhintergrund' => static function (ProbeTile $m): array {
-            $m->properties['BG_Off'] = false;
-            return [];
-        },
-        'ohne Standardhintergrund, eigenes Bild' => static function (ProbeTile $m): array {
-            $m->properties['BG_Off'] = false;
-            image(510, 'media/bg.png', 'BG');
-            $m->properties['bgImage'] = 510;
-            return [];
-        },
-        'Zuordnungen' => $zuordnung([
-            ['AssoziationName' => 'Bereit', 'AssoziationValue' => 0, 'Animation' => 'standby_animation', 'StatusColor' => -1, 'Bildauswahl' => 'goe_aus'],
-            ['AssoziationName' => 'Laden', 'AssoziationValue' => 2, 'Animation' => 'laden_animation', 'StatusColor' => 0x00FF00, 'Bildauswahl' => 'goe_an'],
-        ]),
-        'Zuordnung aus UpdateList' => $zuordnung([
-            ['AssoziationName' => 'Laden', 'AssoziationValue' => 2, 'Bildauswahl' => 'goe_aus', 'StatusColor' => '-1'],
-        ]),
-        'Sonderzeichen' => static function (ProbeTile $m): array {
-            $boese = "O'Neil \"x\" \\ Zeile1\nZeile2 </script><script>alert(1)</script> & <b> äöü";
-            return alleVariablen($m, ['Kabel' => [$boese, $boese], 'Status' => [2, $boese]]);
-        },
-        'Farben und Größen' => static function (ProbeTile $m): array {
-            $m->properties = array_replace($m->properties, ['Kachelhintergrundfarbe' => 0x123456, 'StatusSchriftgroesse' => 1.5,
-                'BildBreite' => 0.0, 'Bildtransparenz' => 0.3, 'BalkenVerlaufFarbe1' => 0xFF0000, 'InfoSchriftgroesse' => 0.8]);
-            return [];
-        },
-    ];
-}
-
-// Je Konfiguration: Nachrichten aus ApplyChanges und VM_UPDATE, das Kacheldokument hinter module.html und die
-// Warnungen (aufgezeichnet statt geworfen; Symcon protokolliert sie und läuft weiter).
-function vergleich(): array
-{
-    $warnungen = [];
-    set_error_handler(static function (int $severity, string $message) use (&$warnungen): bool {
-        $warnungen[] = $message;
-        return true;
-    });
-    $html = (string) file_get_contents(dirname((new ReflectionClass(TileVisuWallboxKachel::class))->getFileName()) . '/module.html');
-    try {
-        world();
-        $m = tile();
-        $ergebnis = ['_eigenschaften' => [$m->properties, $m->propertyTypes]];
-        foreach (konfigurationen() as $name => $aufbau) {
-            world();
-            $m = tile();
-            $ids = $aufbau($m);
-            $warnungen = [];
-            $m->ApplyChanges();
-            $dokument = $m->GetVisualizationTile();
-            foreach ($ids as $id) {
-                $m->MessageSink(1, $id, VM_UPDATE, [GetValue($id), true, null, 1]);
-            }
-            $ergebnis[$name] = ['updates' => $m->updates, 'tail' => substr($dokument, strlen($html)), 'warnungen' => $warnungen];
-        }
-    } finally {
-        restore_error_handler();
-    }
-    return $ergebnis;
-}
-
-// VM_UPDATE nur bei echter Wertänderung: Zeilen [Bezeichnung, erwartete Nachrichten, gesendete Nachrichten].
-// Läuft auch gegen den Altstand; dort müssen genau die Zeilen fallen, die keine Nachricht erwarten.
-function nachrichtenfilter(): array
-{
-    world();
-    variable(701, 45, '45 %');
-    variable(702, 7.4, '7,4 kW');
-    $m = tile(12500);
-    $m->properties['SOC'] = 701;
-    $m->properties['Ladeleistung'] = 702;
-    $m->ApplyChanges();
-    $zeilen = [];
-    $zaehle = static function (string $label, int $erwartet, callable $aktion) use ($m, &$zeilen): void {
-        $vorher = count($m->updates);
-        $aktion();
-        $zeilen[] = [$label, $erwartet, count($m->updates) - $vorher];
-    };
-    // $Data wie von Symcon: [neuer Wert, geändert, alter Wert, Zeitstempel]
-    $update = static fn (int $id, array $data): callable => static fn () => $m->MessageSink(0, $id, VM_UPDATE, $data);
-    $zaehle('Update without a new value ($Data[1] false) sends nothing', 0, $update(701, [45, false, 45, 1]));
-    changeValue(701, 46, '46 %');
-    $zaehle('Changed value sends its message', 1, $update(701, [46, true, 45, 2]));
-    changeValue(702, 11.0, '11 kW');
-    $zaehle('Another variable sends its own message', 1, $update(702, [11.0, true, 7.4, 3]));
-    // Die Kachel liest den aktuellen Wert: nach mehreren schnellen Änderungen ist die Nachricht dieselbe
-    $zaehle('Identical message is not sent again (memory per variable)', 0, $update(701, [46, true, 45, 4]));
-    changeValue(701, 47, '47 %');
-    $zaehle('The next real change goes out again', 1, $update(701, [47, true, 46, 5]));
-    $zaehle('ApplyChanges still sends the full update', 1, static fn () => $m->ApplyChanges());
-    $zaehle('After ApplyChanges the same message goes out again', 1, $update(701, [47, true, 46, 6]));
-    $zaehle('... but only once', 0, $update(701, [47, true, 46, 7]));
-    $m->GetVisualizationTile();
-    $zaehle('After the initial build of a tile it goes out again', 1, $update(701, [47, true, 46, 8]));
-    $m->GetVisualizationTile();
-    $zaehle('Without $Data[1] (other format) the update is sent', 1, $update(702, []));
-    return $zeilen;
-}
-
-// Altstand in ein Temp-Verzeichnis entpacken; null ohne git oder ohne den Commit (etwa in einer flachen Kopie).
-function altstand(): ?string
-{
-    $repo = escapeshellarg(dirname(__DIR__));
-    exec('git -C ' . $repo . ' cat-file -e ' . escapeshellarg(ALTSTAND . '^{commit}') . ' 2>/dev/null', $unused, $code);
-    if ($code !== 0) {
-        return null;
-    }
-    $dir = sys_get_temp_dir() . '/wallbox-test-' . bin2hex(random_bytes(6));
-    mkdir($dir, 0700, true);
-    exec('git -C ' . $repo . ' archive ' . escapeshellarg(ALTSTAND) . ' | tar -x -C ' . escapeshellarg($dir), $unused, $code);
-    return $code === 0 && is_file($dir . '/Wallbox/module.php') ? $dir : null;
-}
-
-function aufraeumen(string $dir): void
-{
-    $eintraege = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
-    foreach ($eintraege as $eintrag) {
-        $eintrag->isDir() ? rmdir($eintrag->getPathname()) : unlink($eintrag->getPathname());
-    }
-    rmdir($dir);
-}
-
-// Führt einen Modus dieser Datei mit der Kachel des Altstands in einem eigenen Prozess aus.
-function imAltstand(string $dir, string $modus): mixed
-{
-    $datei = $dir . '/' . $modus . '.json';
-    $command = 'WALLBOX_MODULE=' . escapeshellarg($dir . '/Wallbox/module.php') . ' ' . escapeshellarg(PHP_BINARY) . ' '
-        . escapeshellarg(__FILE__) . ' ' . escapeshellarg($modus) . ' ' . escapeshellarg($datei) . ' 2>&1';
-    exec($command, $ausgabe, $code);
-    if ($code !== 0 || !is_file($datei)) {
-        throw new RuntimeException('Mode ' . $modus . ' failed in ' . ALTSTAND . ': ' . implode("\n", $ausgabe));
-    }
-    return json_decode((string) file_get_contents($datei), true, 512, JSON_THROW_ON_ERROR);
-}
-
-if (in_array($argv[1] ?? '', ['vergleich', 'nachrichtenfilter'], true)) {
+if (in_array($argv[1] ?? '', ['vergleich', 'nachrichtenfilter', 'abos'], true)) {
     // Gegenprobe: dieselben Schritte mit der Kachel, die WALLBOX_MODULE geladen hat
     file_put_contents($argv[2], json_encode(($argv[1])(), JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION));
     exit(0);
@@ -243,7 +53,8 @@ $m->ApplyChanges();
 check($m->updates === [] && $m->references === [] && $m->messages === [0 => [IPS_KERNELSTARTED]], 'Before KR_READY only the kernel start is awaited');
 $runlevel = KR_READY;
 $m->MessageSink(0, 0, IPS_KERNELSTARTED, []);
-check(count($m->updates) === 1 && ($m->messages[0] ?? []) !== [IPS_KERNELSTARTED] && isset($m->references[101]), 'Kernel start completes ApplyChanges');
+check(count($m->updates) === 1 && !isset($m->messages[0]) && $m->messages === [101 => [VM_UPDATE]] && isset($m->references[101]),
+    'Kernel start completes ApplyChanges and leaves no subscription on sender 0');
 
 echo '--- Icon-Baustein' . PHP_EOL;
 $moduleHtml = (string) file_get_contents(__DIR__ . '/../Wallbox/module.html');
@@ -433,6 +244,13 @@ foreach ($zeilen as [$label, $erwartet, $ist]) {
     check($ist === $erwartet, $label . ' (' . $ist . ' messages)');
 }
 
+echo '--- Abos und Referenzen nur für zugeordnete Objekte' . PHP_EOL;
+$abos = abos();
+check(array_keys($abos['abos']) === [702, 701] && array_unique(array_merge(...array_values($abos['abos']))) === [VM_UPDATE],
+    'VM_UPDATE only for the two assigned variables');
+check(!isset($abos['abos'][0]) && $abos['leer'] === [], 'No VM_UPDATE for sender 0 (it would report every variable in the system to MessageSink)');
+check($abos['referenzen'] === [510, 702, 701] && $abos['leerReferenzen'] === [], 'References only for assigned objects');
+
 echo '--- Gegenprobe gegen ' . ALTSTAND . PHP_EOL;
 $alt = altstand();
 if ($alt === null) {
@@ -445,6 +263,12 @@ if ($alt === null) {
         $still = array_column(array_filter($zeilen, static fn (array $z): bool => $z[1] === 0), 0);
         check(count($vorherFilter) === count($zeilen) && $still !== [] && $fallend === $still,
             'Without the filter (' . ALTSTAND . ') exactly the ' . count($still) . ' checks expecting no message fail');
+
+        // Abos: der Altstand meldete VM_UPDATE auch für nicht zugeordnete Eigenschaften (0) an
+        $vorherAbos = imAltstand($alt, 'abos');
+        check(($vorherAbos['abos'][0] ?? null) === [VM_UPDATE] && $vorherAbos['leer'] === [[VM_UPDATE]],
+            ALTSTAND . ' registered VM_UPDATE for sender 0: the check above fails there');
+        check($vorherAbos['referenzen'] === $abos['referenzen'] && $vorherAbos['leerReferenzen'] === [], 'References skipped 0 already before and stay the same');
 
         // Payload wie bisher: dieselben Konfigurationen, Byte für Byte
         $vorher = imAltstand($alt, 'vergleich');

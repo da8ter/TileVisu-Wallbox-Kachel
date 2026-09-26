@@ -97,11 +97,11 @@ class TileVisuWallboxKachel extends IPSModuleStrict
 
         $this->EnsureImageHookToken();
 
-        //Referenzen Registrieren
+        //Referenzen Registrieren (0 = nicht zugeordnet)
         $ids = array_unique(array_filter(array_merge(
             [$this->ReadPropertyInteger('bgImage')],
             array_map(fn(string $prop): int => $this->ReadPropertyInteger($prop), self::VARIABLE_PROPERTIES)
-        )));
+        ), static fn (int $id): bool => $id > 0));
 
         // Bestehende Referenzen leeren und neu setzen
         foreach ($this->GetReferenceList() as $ref) {
@@ -121,7 +121,11 @@ class TileVisuWallboxKachel extends IPSModuleStrict
         }
 
         foreach (self::VARIABLE_PROPERTIES as $VariableProperty) {
-            $this->RegisterMessage($this->ReadPropertyInteger($VariableProperty), VM_UPDATE);
+            $id = $this->ReadPropertyInteger($VariableProperty);
+            // 0 = nicht zugeordnet. RegisterMessage(0, VM_UPDATE) meldete jede Variable im System an MessageSink.
+            if ($id > 0) {
+                $this->RegisterMessage($id, VM_UPDATE);
+            }
         }
 
         // Schicke eine komplette Update-Nachricht an die Darstellung, da sich ja Parameter geändert haben können.
