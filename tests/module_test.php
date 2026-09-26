@@ -206,6 +206,12 @@ $runlevel = KR_READY;
 $m->MessageSink(0, 0, IPS_KERNELSTARTED, []);
 check(count($m->updates) === 1 && ($m->messages[0] ?? []) !== [IPS_KERNELSTARTED] && isset($m->references[101]), 'Kernel start completes ApplyChanges');
 
+echo '--- Icon-Baustein' . PHP_EOL;
+$moduleHtml = (string) file_get_contents(__DIR__ . '/../Wallbox/module.html');
+check(substr_count($moduleHtml, '<!-- symcon-icons-shared: ') === 1 && substr_count($moduleHtml, '<!-- /symcon-icons-shared -->') === 1
+    && strpos($moduleHtml, '<!-- symcon-icons-shared: ') < strpos($moduleHtml, '</head>'), 'Shared icon block is built into the head exactly once');
+check(preg_match('~<script src="/icons\.js"[^>]*>\s*</script>~', $moduleHtml) === 0, 'The tile no longer loads /icons.js with a script tag of its own');
+
 echo '--- RequestAction und UpdateList' . PHP_EOL;
 world();
 $m = tile();
