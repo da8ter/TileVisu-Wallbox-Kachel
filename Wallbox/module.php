@@ -168,7 +168,7 @@ class TileVisuWallboxKachel extends IPSModuleStrict
                 if ($message !== null) {
                     $this->SendUpdateIfChanged($property, $message);
                 }
-                break;
+                // Kein break: dieselbe Variable kann mehreren Eigenschaften zugeordnet sein
             }
         }
     }
@@ -279,7 +279,10 @@ class TileVisuWallboxKachel extends IPSModuleStrict
         $images .= 'var statusImages = ' . $statusImagesJson . ';';
         $images .= 'var statusColor = ' . $statusColorJson . ';';
         $images .= 'var statusAnimation = ' . $statusAnimationJson . ';';
-        $images .= 'var phasecount = ' . (IPS_VariableExists($this->ReadPropertyInteger('Phasen')) ? GetValue($this->ReadPropertyInteger('Phasen')) : 'null') . ';';
+        // Nur eine Zahl in den Skriptblock: die Phasen-Variable ist frei wählbar, ein Text käme sonst als Code an
+        $phasen = $this->ReadPropertyInteger('Phasen');
+        $phasecount = IPS_VariableExists($phasen) ? GetValue($phasen) : null;
+        $images .= 'var phasecount = ' . (is_numeric($phasecount) ? (string) (int) $phasecount : 'null') . ';';
         $images .= 'var wallboxstatus = ' . (IPS_VariableExists($this->ReadPropertyInteger('Status')) ? (int)GetValue($this->ReadPropertyInteger('Status')) : 'null') . ';';
         $images .= '</script>';
 

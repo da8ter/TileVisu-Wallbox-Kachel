@@ -117,6 +117,32 @@ check(substr_count($t['html'], '</script>') === substr_count($moduleHtml, '</scr
     'No <, > or & of a value in the initial script: it can neither close the script nor hide its end tag (<!--<script>)');
 check(json_decode(end($m->updates), true)['Kabel'] === $boese, 'The ApplyChanges message carries the same value as JSON');
 
+echo '--- Phasenzahl nur als Zahl im Skriptblock' . PHP_EOL;
+world();
+$m = tile();
+alleVariablen($m, ['Phasen' => ['1;alert(1)', '1;alert(1)']]);
+$m->ApplyChanges();
+check(str_contains($m->GetVisualizationTile(), 'var phasecount = null;') && !str_contains($m->GetVisualizationTile(), 'alert(1);'),
+    'A text in the phase variable becomes null instead of code in the script');
+world();
+$m = tile();
+alleVariablen($m, ['Phasen' => [3.0, '3']]);
+$m->ApplyChanges();
+check(str_contains($m->GetVisualizationTile(), 'var phasecount = 3;'), 'A numeric phase count is written as a plain number');
+
+echo '--- Eine Variable in mehreren Eigenschaften' . PHP_EOL;
+world();
+variable(801, 45, '45 %');
+$m = tile(12600);
+$m->properties['SOC'] = 801;
+$m->properties['ZielSOC'] = 801;
+$m->ApplyChanges();
+changeValue(801, 50, '50 %');
+$vorher = count($m->updates);
+$m->MessageSink(0, 801, VM_UPDATE, [50, true, 45, 1]);
+$neu = array_map(static fn (string $u): array => array_keys(json_decode($u, true)), array_slice($m->updates, $vorher));
+check($neu === [['SOC', 'SOCValue'], ['ZielSOC', 'ZielSOCValue']], 'Every property of the variable gets its update, not only the first');
+
 echo '--- Bild-Hook: Adressen statt Base64' . PHP_EOL;
 $root = dirname(__DIR__);
 $bytes = static fn (string $path): string => (string) file_get_contents($root . '/' . $path);
