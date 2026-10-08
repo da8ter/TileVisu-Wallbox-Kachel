@@ -35,5 +35,5 @@ git diff --check
 
 ## Weiteres Wissen
 
-- Symcon-Plattformwissen (Hooks und Ausgabegrenze, Lebenszyklus, Kacheln und Icons): https://github.com/da8ter/SymDo-Family-Organizer/tree/SymDo-Beta/docs/plattform, lokal `../List/docs/plattform/`.
-- Sparsame Updates und Animationen in Kacheln: https://github.com/da8ter/SymDo-Family-Organizer/blob/SymDo-Beta/docs/entscheidungen/kacheln-ressourcen.md
+- Symcon-Plattformwissen (Hooks und Ausgabegrenze, Lebenszyklus, Kacheln und Icons): https://github.com/da8ter/SymDo-Family-Organizer/tree/SymDo-Beta/.claude/docs/plattform, lokal `../List/.claude/docs/plattform/`.
+- Sparsame Updates und Animationen in Kacheln: https://github.com/da8ter/SymDo-Family-Organizer/blob/SymDo-Beta/.claude/docs/entscheidungen/kacheln-ressourcen.md
