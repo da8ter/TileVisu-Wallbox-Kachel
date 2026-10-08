@@ -205,36 +205,14 @@ class TileVisuWallboxKachel extends IPSModuleStrict
      * @param string $Ident  Name of the module property that holds the variable ID
      * @param mixed  $Value  Value or offset supplied by the front-end
      */
+    /**
+     * Die Kachel schaltet nichts (module.html ruft requestAction nicht auf). Die Idents eines
+     * Kachel-RequestAction erreicht aber jeder Browser mit Zugang zur Visu: Ueber diesen Weg
+     * liess sich jede zugeordnete Variable schalten, auch Verriegelung und Zugangskontrolle. Deshalb wird jeder Ident abgewiesen.
+     */
     public function RequestAction(string $Ident, mixed $Value): void
     {
-        // Nur die Variablen-Eigenschaften der Kachel; andere Idents werden an der Systemgrenze abgewiesen,
-        // statt beim Lesen einer unbekannten Eigenschaft zu scheitern.
-        if (!in_array($Ident, self::VARIABLE_PROPERTIES, true)) {
-            throw new Exception('Invalid ident: ' . $Ident);
-        }
-        $variableID = $this->ReadPropertyInteger($Ident);
-        if (!IPS_VariableExists($variableID)) {
-            $this->SendDebug('RequestAction', "Variable for ident {$Ident} does not exist", 0);
-            return;
-        }
-
-        $currentValue = GetValue($variableID);
-        $variable     = IPS_GetVariable($variableID);
-
-        switch ($variable['VariableType']) {
-            case 0: // Boolean
-                $newValue = !$currentValue;
-                break;
-            case 1: // Integer
-            case 2: // Float
-                $newValue = is_numeric($Value) ? $currentValue + $Value : $Value;
-                break;
-            default:
-                $newValue = $Value;
-                break;
-        }
-
-        RequestAction($variableID, $newValue);
+        throw new Exception('Invalid ident: ' . $Ident);
     }
 
     public function GetVisualizationTile(): string

@@ -8,7 +8,7 @@ Betriebsdaten dieses Rechners stehen in `CLAUDE.local.md` (nicht eingecheckt). E
 
 - **`Wallbox/`** (Präfix `WAL`, Klasse `TileVisuWallboxKachel`, `IPSModuleStrict`, ab Symcon 8.1): `module.php`, `module.html`, `form.json`, `locale.json`, `assets/` (Gerätebilder).
 - **`module.html` und `locale.json` im Wurzelordner sind alte Kopien** ohne Wirkung (kein `module.json` daneben). Änderungen gehören nach `Wallbox/`.
-- **17 Variablen-Eigenschaften** (`VARIABLE_PROPERTIES`); nur sie sind gültige Idents für `RequestAction`.
+- **17 Variablen-Eigenschaften** (`VARIABLE_PROPERTIES`). `RequestAction` weist jeden Ident ab: Die Kachel schaltet nichts, und Kachel-Idents erreicht jeder Visu-Browser.
 - **Bilder** über den nativen Hook `/hook/wallboximages/<ID>?k=…&v=…&t=…` (registriert in `Create()`, Token aus `ApplyChanges`). Ohne Hook oder über `ScriptOutputBufferLimit` bleiben sie als Data-URI eingebettet.
 - **Startwerte** im Skriptblock mit `JSON_HEX_TAG | JSON_HEX_AMP`; `phasecount` wird nur als Zahl eingesetzt.
 - **`MessageSink`** prüft jede Eigenschaft, die auf die gemeldete Variable zeigt (ohne `break`): Zeigen zwei Eigenschaften auf dieselbe Variable, bekommen beide ihr Update. Gesendet wird nur bei echter Änderung (`$Data[1]`, Prüfwert je Eigenschaft im Puffer `UpdateHashes`); ID 0 wird nie abonniert.

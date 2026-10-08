@@ -68,22 +68,12 @@ $m = tile();
 $ids = alleVariablen($m);
 variable(118, 'Typ 2', 'Typ 2');
 $m->properties['Kabel'] = 118;
-$m->RequestAction('SOCschalter', 'egal');
-$m->RequestAction('SOC', 5);
-$m->RequestAction('Ladeleistung', '0.5');
-$m->RequestAction('ZielSOC', 'kein Versatz');
-$m->RequestAction('Kabel', 'Typ 1');
-check($actions === [[105, false], [103, 50], [102, 7.9], [104, 'kein Versatz'], [118, 'Typ 1']], 'RequestAction toggles Booleans, offsets numbers and writes other values as before');
-$actions = [];
-$m->properties['Reichweite'] = 999;
-$m->RequestAction('Reichweite', 1);
-check($actions === [], 'A missing variable is not touched');
-foreach (['bgImage', 'Bildauswahl', 'Unbekannt', ''] as $ident) {
+foreach (['SOCschalter', 'SOC', 'Verriegelung', 'Zugangskontrolle', 'Kabel', 'bgImage', 'Unbekannt', ''] as $ident) {
     try {
         $m->RequestAction($ident, 1);
         throw new LogicException('Ident accepted');
     } catch (Exception $e) {
-        check(str_starts_with($e->getMessage(), 'Invalid ident:') && $actions === [], 'Ident "' . $ident . '" is rejected');
+        check(str_starts_with($e->getMessage(), 'Invalid ident:') && $actions === [], 'RequestAction "' . $ident . '" is rejected and switches nothing (tile switches nothing)');
     }
 }
 $m->UpdateList(101);
